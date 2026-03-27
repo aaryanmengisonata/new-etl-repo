@@ -446,6 +446,106 @@ class PredefinedValidations:
         return summary
 
     @staticmethod
+    def column_value_validation(
+        source_data: DataLike,
+        target_data: DataLike,
+        compare_columns: Optional[Sequence[str]] = None,
+        max_mismatch_rows: int = 10,
+    ) -> Dict[str, Any]:
+        """Compare selected column values row-by-row between source and target datasets."""
+        source_df = PredefinedValidations._to_dataframe(source_data, dataset_name="source_data")
+        target_df = PredefinedValidations._to_dataframe(target_data, dataset_name="target_data")
+
+        source_row_count = int(len(source_df))
+        target_row_count = int(len(target_df))
+
+        if source_row_count != target_row_count:
+            raise AssertionError(
+                f"Column value validation failed: row count mismatch source={source_row_count}, "
+                f"target={target_row_count}."
+            )
+
+        if compare_columns is None:
+            if len(source_df.columns) == 1 and len(target_df.columns) == 1:
+                source_compare_columns = [str(source_df.columns[0])]
+                target_compare_columns = [str(target_df.columns[0])]
+            else:
+                raise AssertionError(
+                    "column_value_validation requires compare_columns when query results contain multiple columns."
+                )
+        else:
+            source_compare_columns = list(compare_columns)
+            target_compare_columns = list(compare_columns)
+            PredefinedValidations._assert_columns_exist(source_df, source_compare_columns, "source_data")
+            PredefinedValidations._assert_columns_exist(target_df, target_compare_columns, "target_data")
+
+        source_view = source_df[source_compare_columns].copy().reset_index(drop=True)
+        target_view = target_df[target_compare_columns].copy().reset_index(drop=True)
+        target_view.columns = source_compare_columns
+
+        mismatch_records: List[Dict[str, Any]] = []
+        for row_index in range(source_row_count):
+            source_row = source_view.iloc[row_index]
+            target_row = target_view.iloc[row_index]
+
+            row_mismatch: Dict[str, Any] = {"row_number": row_index + 1}
+            has_mismatch = False
+
+            for column_name in source_compare_columns:
+                left = PredefinedValidations._normalize_series(pd.Series([source_row[column_name]])).iloc[0]
+                right = PredefinedValidations._normalize_series(pd.Series([target_row[column_name]])).iloc[0]
+
+                values_match = (
+                    left == right
+                    or (pd.isna(left) and pd.isna(right))
+                )
+                if values_match:
+                    continue
+
+                row_mismatch[f"{column_name}_source"] = source_row[column_name]
+                row_mismatch[f"{column_name}_target"] = target_row[column_name]
+                has_mismatch = True
+
+            if has_mismatch:
+                mismatch_records.append(row_mismatch)
+                if len(mismatch_records) >= max_mismatch_rows:
+                    break
+
+        summary = {
+            "row_count": source_row_count,
+            "validated_columns": list(source_compare_columns),
+            "mismatch_count": len(mismatch_records),
+            "sample_mismatches": mismatch_records,
+        }
+
+        if mismatch_records:
+            mismatch_messages: List[str] = []
+            for mismatch in mismatch_records:
+                row_number = mismatch.get("row_number", "?")
+                column_messages: List[str] = []
+                for column_name in source_compare_columns:
+                    source_key = f"{column_name}_source"
+                    target_key = f"{column_name}_target"
+                    if source_key not in mismatch and target_key not in mismatch:
+                        continue
+                    column_messages.append(
+                        f"{column_name}: source={mismatch.get(source_key)!r}, "
+                        f"target={mismatch.get(target_key)!r}"
+                    )
+                if column_messages:
+                    mismatch_messages.append(
+                        f"row {row_number} -> " + " | ".join(column_messages)
+                    )
+
+            raise AssertionError(
+                "Column value validation failed for columns "
+                f"{list(source_compare_columns)}. "
+                f"Mismatched rows: {' ; '.join(mismatch_messages[:max_mismatch_rows])}"
+            )
+
+        return summary
+
+    @staticmethod
     def incremental_delta_validation(
         source_data: DataLike,
         target_data: DataLike,

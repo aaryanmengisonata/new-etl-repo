@@ -1,3 +1,1588 @@
-test_id,test_name,source_query,target_query,validation_type,enabled,description,severity,source_lakehouse,target_lakehouse,table_name,source_schema,target_schema,target_lhname_column,target_lhname_value,source_where,target_where,key_columns,compare_columns,mandatory_columns,delete_column,watermark_column,delta_start,delta_end,aggregate_columns,aggregate_functions,aggregate_tolerance,child_fk_columns,parent_pk_columns,Dimension
-TEST_01,Active Records Count Validation For AX,"SELECT COUNT(*) FROM {source_lakehouse}.{source_schema}.{table_name} WHERE isdelete = 0 AND CONVERT(date, dpmodifieddatetime) >= '2024-01-01'","SELECT COUNT(*) FROM {target_lakehouse}.{target_schema}.{table_name} WHERE isdelete = 0 AND {target_lhname_column}='{target_lhname_value}' AND CONVERT(date, dpmodifieddatetime) >= '2024-01-01'",row_count_comparison,False,Validate active records from 2024 onwards match between Bronze and Silver,major,"LH_AX_APAC,LH_AX_BRAZIL,LH_AX_EASTEUR,LH_AX_ITALY ,LH_AX_LATAM,LH_AX_WESTEUR",LH_Finance,"CUSTINVOICETRANS, CUSTINVOICEJOUR, CUSTTABLE, CUSTTRANS, FISCALCALENDARPERIOD, INVENTTRANS, LEDGERJOURNALTRANS, PURCHLINE, SALESLINE, SALESTABLE, VENDINVOICEJOUR, VENDTRANS, WORKFLOWTRACKINGSTATUSTABLE",fullload,dbo,lhname,"LH_AX_APAC,LH_AX_BRAZIL,LH_AX_EASTEUR,LH_AX_ITALY ,LH_AX_LATAM,LH_AX_WESTEUR",,,,,,,,,,,,,,,
-TEST_02,Active Records Count Validation For AX,"select count(*) from (select Recid, Recversion, DPCreatedDateTime, DPModifiedDateTime, isdelete from (SELECT DISTINCT ISNULL(da.name,'') AS [BankAccountName], ISNULL(COALESCE(dav.displayvalue,dalv.displayvalue,''),'') AS [BankAccountValue], ISNULL(dft.description,'') AS [BankAccountDescription], CONVERT(varchar(20),ISNULL(dav.activefrom,'1900-01-01'),120) AS [ActiveFrom], CONVERT(varchar(20),ISNULL(dav.activeto,'1900-01-01'),120) AS [ActiveTo], ISNULL(dav.issuspended,0) AS [IsSuspended], ISNULL(fgv.Description,'') AS [GlobalDimensionValue], ISNULL(dav.recid,0) AS [Recid], ISNULL(dav.recversion,0) AS [Recversion], ISNULL(dav.lhname,'') AS [LHName], CONVERT(varchar(20),ISNULL(dav.dpcreateddatetime,'1900-01-01'),120) AS DPCreatedDateTime, CONVERT(varchar(20),ISNULL(dav.dpmodifieddatetime,'1900-01-01'),120) AS DPModifiedDateTime, dav.isdelete from (SELECT recid,recversion,dpcreateddatetime,dpmodifieddatetime,displayvalue,dimensionattribute,entityinstance,lhname,isdelete,activefrom,activeto,issuspended FROM dimensionattributevalue WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as dav left join dimensionattribute as da on da.recid = dav.dimensionattribute and da.lhname = dav.lhname left join dimensionfinancialtag as dft on dav.entityinstance = dft.recid and dav.lhname = dft.lhname left join dimensionattributelevelvalue as dalv on dalv.dimensionattributevalue = dav.recid and dalv.lhname = dav.lhname left join dimensionattributevaluegroupcombination davg on davg.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup and dalv.lhname = davg.lhname left join financeglobaldimensionvalues fgv on COALESCE(dav.displayvalue,dalv.displayvalue,'') = fgv.Dimension_value where da.name = 'BankAccount' and COALESCE(dav.displayvalue,dalv.displayvalue,'') <> '' and dav.isdelete = 0) X) a",SELECT COUNT(*) FROM enterprise_dwh.Finance.DIM_BankAccount WHERE IsDelete <> 1,row_count_comparison,True,Validate active records from 2024 onwards match between Bronze and Silver,major,,,,,,,,,,,,,,,,,,,,,,
+test_id,test_name,source_query,target_query,validation_type,enabled,description,severity,source_lakehouse,target_lakehouse,table_name,source_schema,target_schema,target_lhname_column,target_lhname_value,source_where,target_where,key_columns,compare_columns,mandatory_columns,delete_column,watermark_column,delta_start,delta_end,aggregate_columns,aggregate_functions,aggregate_tolerance,child_fk_columns,parent_pk_columns,Dimension,source_layer,target_layer
+test_01,active records count,"select count(*) from (
+select recid, recversion, dpcreateddatetime, dpmodifieddatetime, isdelete from(  SELECT DISTINCT
+  ISNULL(da.name, '') AS ['+{Dimension}+'Name],
+  ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [' + {Dimension} + 'Value],
+  ISNULL(dft.description, '') AS [' + {Dimension} + 'Description],
+  CONVERT(varchar(20), ISNULL(dav.activefrom, '1900-01-01'), 120) AS [ActiveFrom],    -- UPDATED
+	CONVERT(varchar(20), ISNULL(dav.activeto, '1900-01-01'), 120) AS [ActiveTo],    
+  ISNULL(dav.issuspended, 0) AS [IsSuspended],
+  ISNULL(fgv.Description, '') AS [GlobalDimensionValue],
+  ISNULL(dav.recid, 0) AS [Recid],
+  ISNULL(dav.recversion, 0) AS [Recversion],python -m pytest tests/fabric/test_csv_driven_silver_to_gold_validation.py -v -s
+  ISNULL(dav.lhname, '') AS [LHName],
+  CONVERT(varchar(20), ISNULL(dav.dpcreateddatetime, '1900-01-01'), 120) AS DPCreatedDateTime,  -- UPDATED
+	CONVERT(varchar(20), ISNULL(dav.dpmodifieddatetime, '1900-01-01'), 120) AS DPModifiedDateTime, -- UPDATED
+  dav.isdelete
+from (SELECT * FROM  [LH_Finance].[dbo].[dimensionattributevalue] WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as dav
+  left join  [LH_Finance].[dbo].[dimensionattribute] as da
+  on da.recid = dav.dimensionattribute  and da.lhname = dav.lhname 
+  left join  [LH_Finance].[dbo].[dimensionfinancialtag] as dft
+  on dav.entityinstance = dft.recid AND  dav.lhname = dft.lhname
+  left join  [LH_Finance].[dbo].[dimensionattributelevelvalue] as dalv
+  on dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname
+  left join  [LH_Finance].[dbo].[dimensionattributevaluegroupcombination] davg
+  on davg.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = davg.lhname
+  left join  [LH_Finance].[dbo].[financeglobaldimensionvalues] fgv
+  ON coalesce(dav.displayvalue, dalv.displayvalue, '') = fgv.Dimension_value
+where da.name = '{Dimension}' AND coalesce(dav.displayvalue, dalv.displayvalue, '') <> '' and dav.isdelete=0) X
+) as a",SELECT COUNT(*) FROM enterprise_dwh.Finance.{table_name}  WHERE IsDelete <> 1,row_count_comparison,FALSE,Validate active record count between Silver and Gold,major,,,"DIM_Bankaccount,DIM_Site,DIM_ProjectCode,DIM_InterCompanyRecharge,DIM_ReportingTerritory,DIM_SubDepartment",,,,,,,,,,,,,,,,,,,"Bankaccount,Site,ProjectCode,InterCompanyRecharge,ReportingTerritory,SubDepartment",,
+test_02,column value validation reference,"select lhname as LHName, count(*)  as Rowcounts from(   SELECT DISTINCT
+  ISNULL(da.name, '') AS ['+{Dimension}+'Name],
+  ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [' + {Dimension} + 'Value],
+  ISNULL(dft.description, '') AS [' + {Dimension} + 'Description],
+  CONVERT(varchar(20), ISNULL(dav.activefrom, '1900-01-01'), 120) AS [ActiveFrom],    -- UPDATED
+	CONVERT(varchar(20), ISNULL(dav.activeto, '1900-01-01'), 120) AS [ActiveTo],    
+  ISNULL(dav.issuspended, 0) AS [IsSuspended],
+  ISNULL(fgv.Description, '') AS [GlobalDimensionValue],
+  ISNULL(dav.recid, 0) AS [Recid],
+  ISNULL(dav.recversion, 0) AS [Recversion],
+  ISNULL(dav.lhname, '') AS [LHName],
+  CONVERT(varchar(20), ISNULL(dav.dpcreateddatetime, '1900-01-01'), 120) AS DPCreatedDateTime,  -- UPDATED
+	CONVERT(varchar(20), ISNULL(dav.dpmodifieddatetime, '1900-01-01'), 120) AS DPModifiedDateTime, -- UPDATED
+  dav.isdelete
+from (SELECT * FROM  [dimensionattributevalue] WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as dav
+  left join  [dimensionattribute] as da
+  on da.recid = dav.dimensionattribute 
+  and da.lhname = dav.lhname 
+  left join  [dimensionfinancialtag] as dft
+  on dav.entityinstance = dft.recid  and dav.lhname = dft.lhname
+  left join  [dimensionattributelevelvalue] as dalv
+  on dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname 
+  left join  [dimensionattributevaluegroupcombination] davg
+  on davg.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = davg.lhname
+  left join  [financeglobaldimensionvalues] fgv
+  ON coalesce(dav.displayvalue, dalv.displayvalue, '') = fgv.Dimension_value
+where da.name = '{Dimension}' AND coalesce(dav.displayvalue, dalv.displayvalue, '') <> ''  and dav.isdelete=0 ) X group by lhname order by 1","SELECT LHName, COUNT(*) AS Rowcounts FROM enterprise_dwh.Finance.{table_name} GROUP BY LHName order by 1",column_value_validation,FALSE,Validate active record count between Silver and Gold,major,,,"DIM_Bankaccount,DIM_Site,DIM_ProjectCode,DIM_InterCompanyRecharge,DIM_ReportingTerritory,DIM_SubDepartment",,,,,,,,"LHName, Rowcounts",,,,,,,,,,,"Bankaccount,Site,ProjectCode,InterCompanyRecharge,ReportingTerritory,SubDepartment",,
+test_03,deleted records,,SELECT * FROM enterprise_dwh.Finance.{table_name} WHERE IsDelete=1,target_zero_count_validation,FALSE,Validate active record count between Silver and Gold,major,,,"DIM_Bankaccount,DIM_Site,DIM_ProjectCode,DIM_InterCompanyRecharge,DIM_ReportingTerritory,DIM_SubDepartment,DIM_MainAccount,DIM_Worker",,,,,,,,,,,,,,,,,,,,,
+test_04,new records from source exist in destination,"WITH SourceData AS (
+    SELECT DISTINCT
+  ISNULL(da.name, '') AS ['+{Dimension}+'Name],
+  ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [' + {Dimension} + 'Value],
+  ISNULL(dft.description, '') AS [' + {Dimension} + 'Description],
+   CONVERT(varchar(20), ISNULL(dav.activefrom, '1900-01-01'), 120) AS [ActiveFrom],    -- UPDATED
+	CONVERT(varchar(20), ISNULL(dav.activeto, '1900-01-01'), 120) AS [ActiveTo],    
+  ISNULL(dav.issuspended, 0) AS [IsSuspended],
+  ISNULL(fgv.Description, '') AS [GlobalDimensionValue],
+  ISNULL(dav.recid, 0) AS [Recid],
+  ISNULL(dav.recversion, 0) AS [Recversion],
+  ISNULL(dav.lhname, '') AS [LHName],
+  CONVERT(varchar(20), ISNULL(dav.dpcreateddatetime, '1900-01-01'), 120) AS DPCreatedDateTime,  -- UPDATED
+	CONVERT(varchar(20), ISNULL(dav.dpmodifieddatetime, '1900-01-01'), 120) AS DPModifiedDateTime, -- UPDATED
+  dav.isdelete
+from (SELECT * FROM  [dimensionattributevalue] WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as dav
+   left join  [dimensionattribute] as da
+  on da.recid = dav.dimensionattribute 
+  and da.lhname = dav.lhname 
+  left join  [dimensionfinancialtag] as dft
+  on dav.entityinstance = dft.recid  and dav.lhname = dft.lhname
+  left join  [dimensionattributelevelvalue] as dalv
+  on dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname 
+  left join  [dimensionattributevaluegroupcombination] davg
+  on davg.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = davg.lhname
+  left join  [financeglobaldimensionvalues] fgv
+  ON coalesce(dav.displayvalue, dalv.displayvalue, '') = fgv.Dimension_value
+where da.name = '{Dimension}' AND coalesce(dav.displayvalue, dalv.displayvalue, '') <> '' and dav.isdelete=0
+)
+ 
+SELECT 
+    COUNT(*)
+FROM SourceData
+WHERE DPCreatedDateTime = (SELECT MAX(DPCreatedDateTime) FROM SourceData)",SELECT COUNT(*) FROM enterprise_dwh.Finance.{table_name} WHERE dpcreateddatetime = (Select max(dpcreateddatetime) from enterprise_dwh.Finance.{table_name} ),row_count_comparison,FALSE,Verifying  active record count between Silver and Gold,major,,,"DIM_Bankaccount,DIM_Site,DIM_ProjectCode,DIM_InterCompanyRecharge,DIM_ReportingTerritory,DIM_SubDepartment",,,,,,,,,,,,,,,,,,,"Bankaccount,Site,ProjectCode,InterCompanyRecharge,ReportingTerritory,SubDepartment",,
+test_05,inserted records ,"select   recid,recversion,isdelete,dpcreateddatetime,dpmodifieddatetime from(      SELECT DISTINCT
+  ISNULL(da.name, '') AS ['+{Dimension}+'Name],
+  ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [' + {Dimension} + 'Value],
+  ISNULL(dft.description, '') AS [' + {Dimension} + 'Description],
+    CONVERT(varchar(20), ISNULL(dav.activefrom, '1900-01-01'), 120) AS [ActiveFrom],    -- UPDATED
+	CONVERT(varchar(20), ISNULL(dav.activeto, '1900-01-01'), 120) AS [ActiveTo],    
+  ISNULL(dav.issuspended, 0) AS [IsSuspended],
+  ISNULL(fgv.Description, '') AS [GlobalDimensionValue],
+  ISNULL(dav.recid, 0) AS [Recid],
+  ISNULL(dav.recversion, 0) AS [Recversion],
+  ISNULL(dav.lhname, '') AS [LHName],
+  CONVERT(varchar(20), ISNULL(dav.dpcreateddatetime, '1900-01-01'), 120) AS DPCreatedDateTime,  -- UPDATED
+	CONVERT(varchar(20), ISNULL(dav.dpmodifieddatetime, '1900-01-01'), 120) AS DPModifiedDateTime, -- UPDATED
+  dav.isdelete
+from (SELECT * FROM  [dimensionattributevalue] WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as dav
+     left join  [dimensionattribute] as da
+  on da.recid = dav.dimensionattribute 
+  and da.lhname = dav.lhname 
+  left join  [dimensionfinancialtag] as dft
+  on dav.entityinstance = dft.recid  and dav.lhname = dft.lhname
+  left join  [dimensionattributelevelvalue] as dalv
+  on dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname 
+  left join  [dimensionattributevaluegroupcombination] davg
+  on davg.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = davg.lhname
+  left join  [financeglobaldimensionvalues] fgv
+  ON coalesce(dav.displayvalue, dalv.displayvalue, '') = fgv.Dimension_value
+where da.name = '{Dimension}' AND coalesce(dav.displayvalue, dalv.displayvalue, '') <> ''and dav.isdelete=0 ) X 
+where recid IN ({recid_list}) 
+order by 4 desc","select top 10 percent recid ,recversion,dpcreateddatetime,dpmodifieddatetime FROM enterprise_dwh.Finance.{table_name}
+order by 4 desc",insert_record_validation_group,FALSE,Verifying inserted record count between Silver and Gold,major,,,"DIM_Bankaccount,DIM_Site,DIM_ProjectCode,DIM_InterCompanyRecharge,DIM_ReportingTerritory,DIM_SubDepartment",,,,,,,,,,,,,,,,,,,"Bankaccount,Site,ProjectCode,InterCompanyRecharge,ReportingTerritory,SubDepartment",,
+test_06,verify no duplicate and primarykey uniquness,,"select count(*) recid,lhname from enterprise_dwh.Finance.{table_name} GROUP by recid,lhname HAVING count(*)>1",target_zero_count_validation,FALSE,Verify no duplicate or primary key uniquness count between Silver and Gold,major,,,"DIM_Bankaccount,DIM_Site,DIM_ProjectCode,DIM_InterCompanyRecharge,DIM_ReportingTerritory,DIM_SubDepartment,DIM_MainAccount,DIM_Worker",,,,,,,,,,,,,,,,,,,,,
+test_07,verify deleted records,," select top 10 percent  recid ,recversion,dpcreateddatetime,dpmodifieddatetime FROM enterprise_dwh.Finance.{table_name}  where isdelete =1
+order by 4 desc",target_zero_count_validation,FALSE,Validate no deleted record count between Silver and Gold,major,,,"DIM_Bankaccount,DIM_Site,DIM_ProjectCode,DIM_InterCompanyRecharge,DIM_ReportingTerritory,DIM_SubDepartment,DIM_MainAccount,DIM_Worker",,,,,,,,,,,,,,,,,,,,,
+test_08,no nulls,,"Select * FROM enterprise_dwh.Finance.{table_name}
+where recid is null or isdelete is null or dpcreateddatetime is null or dpmodifieddatetime is null",target_zero_count_validation,FALSE,Verify No null records count between Silver and Gold,major,,,"DIM_Bankaccount,DIM_Site,DIM_ProjectCode,DIM_InterCompanyRecharge,DIM_ReportingTerritory,DIM_SubDepartment,DIM_MainAccount,DIM_Worker",,,,,,,,,,,,,,,,,,,,,
+test_09,active records count,"select count(*) from (
+select recid, recversion, dpcreateddatetime, dpmodifieddatetime, isdelete from(  SELECT DISTINCT
+  ISNULL(da.name, '') AS [WorkerName],
+  ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [WorkerValue],
+  ISNULL(dft.description, '') AS [ WorkerDescription],
+  CONVERT(varchar(20), ISNULL(dav.activefrom, '1900-01-01'), 120) AS [ActiveFrom],    
+ CONVERT(varchar(20), ISNULL(dav.activeto, '1900-01-01'), 120) AS [ActiveTo],    
+  ISNULL(dav.issuspended, 0) AS [IsSuspended],
+  ISNULL(fgv.Description, '') AS [GlobalDimensionValue],
+  ISNULL(dav.recid, 0) AS [Recid],
+  ISNULL(dav.recversion, 0) AS [Recversion],
+  ISNULL(dav.lhname, '') AS [LHName],
+  CONVERT(varchar(20), ISNULL(dav.dpcreateddatetime, '1900-01-01'), 120) AS DPCreatedDateTime,  
+ CONVERT(varchar(20), ISNULL(dav.dpmodifieddatetime, '1900-01-01'), 120) AS DPModifiedDateTime, 
+  dav.isdelete
+ from (SELECT * FROM  [LH_Finance].[dbo].[dimensionattributevalue] WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as dav
+  left join  [LH_Finance].[dbo].[dimensionattribute] as da
+  on da.recid = dav.dimensionattribute  and da.lhname = dav.lhname 
+  left join  [LH_Finance].[dbo].[dimensionfinancialtag] as dft
+  on dav.entityinstance = dft.recid AND  dav.lhname = dft.lhname
+  left join  [LH_Finance].[dbo].[dimensionattributelevelvalue] as dalv
+  on dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname
+  left join  [LH_Finance].[dbo].[dimensionattributevaluegroupcombination] davg
+  on davg.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = davg.lhname
+  LEFT JOIN [LH_Finance].[dbo].[hcmworker] hcmw
+  ON COALESCE(dav.displayvalue, dalv.displayvalue, '') = hcmw.personnelnumber AND dav.lhname = hcmw.lhname
+  LEFT JOIN [LH_Finance].[dbo].[dirpartytable] dpt
+  ON hcmw.person = dpt.recid AND hcmw.lhname = dpt.lhname
+  left join  [LH_Finance].[dbo].[financeglobaldimensionvalues] fgv
+  ON coalesce(dav.displayvalue, dalv.displayvalue, '') = fgv.Dimension_value
+ where da.name = 'Worker' AND coalesce(dav.displayvalue, dalv.displayvalue, '') <> '' and dav.isdelete=0) X
+) as a",SELECT COUNT(*) FROM enterprise_dwh.Finance.{table_name}  WHERE IsDelete <> 1,row_count_comparison,FALSE,Validate active record count between Silver and Gold,major,,,DIM_Worker,,,,,,,,,,,,,,,,,,,,,
+test_10,column value validation reference,"select LHName,count(*) as Rowcounts from(   SELECT DISTINCT
+  ISNULL(da.name, '') AS [WorkerName],
+  ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [WorkerValue],
+  ISNULL(dft.description, '') AS [WorkerDescription],
+  CONVERT(varchar(20), ISNULL(dav.activefrom, '1900-01-01'), 120) AS [ActiveFrom],   
+ CONVERT(varchar(20), ISNULL(dav.activeto, '1900-01-01'), 120) AS [ActiveTo],    
+  ISNULL(dav.issuspended, 0) AS [IsSuspended],
+  ISNULL(fgv.Description, '') AS [GlobalDimensionValue],
+  ISNULL(dav.recid, 0) AS [Recid],
+  ISNULL(dav.recversion, 0) AS [Recversion],
+  ISNULL(dav.lhname, '') AS [LHName],
+  CONVERT(varchar(20), ISNULL(dav.dpcreateddatetime, '1900-01-01'), 120) AS DPCreatedDateTime,  
+ CONVERT(varchar(20), ISNULL(dav.dpmodifieddatetime, '1900-01-01'), 120) AS DPModifiedDateTime, 
+  dav.isdelete
+  from (SELECT * FROM  [LH_Finance].[dbo].[dimensionattributevalue] WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as dav
+  left join  [LH_Finance].[dbo].[dimensionattribute] as da
+  on da.recid = dav.dimensionattribute  and da.lhname = dav.lhname 
+  left join  [LH_Finance].[dbo].[dimensionfinancialtag] as dft
+  on dav.entityinstance = dft.recid AND  dav.lhname = dft.lhname
+  left join  [LH_Finance].[dbo].[dimensionattributelevelvalue] as dalv
+  on dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname
+  left join  [LH_Finance].[dbo].[dimensionattributevaluegroupcombination] davg
+  on davg.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = davg.lhname
+  LEFT JOIN [LH_Finance].[dbo].[hcmworker] hcmw
+  ON COALESCE(dav.displayvalue, dalv.displayvalue, '') = hcmw.personnelnumber AND dav.lhname = hcmw.lhname
+  LEFT JOIN [LH_Finance].[dbo].[dirpartytable] dpt
+  ON hcmw.person = dpt.recid AND hcmw.lhname = dpt.lhname
+  left join  [LH_Finance].[dbo].[financeglobaldimensionvalues] fgv
+  ON coalesce(dav.displayvalue, dalv.displayvalue, '') = fgv.Dimension_value
+ where da.name = 'Worker' AND coalesce(dav.displayvalue, dalv.displayvalue, '') <> ''  and dav.isdelete=0 ) X group by lhname order by 1
+","SELECT LHName, COUNT(*) AS Rowcounts FROM enterprise_dwh.Finance.{table_name} GROUP BY LHName order by 1",column_value_validation,FALSE,Validate active record count between Silver and Gold,major,,,DIM_Worker,,,,,,,,"LHName, Rowcounts",,,,,,,,,,,,,
+test_11,new records from source exist in destination,"WITH SourceData AS (
+    SELECT DISTINCT
+  ISNULL(da.name, '') AS [WorkerName],
+  ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [WorkerValue],
+  ISNULL(dft.description, '') AS [WorkerDescription],
+   CONVERT(varchar(20), ISNULL(dav.activefrom, '1900-01-01'), 120) AS [ActiveFrom],  
+ CONVERT(varchar(20), ISNULL(dav.activeto, '1900-01-01'), 120) AS [ActiveTo],    
+  ISNULL(dav.issuspended, 0) AS [IsSuspended],
+  ISNULL(fgv.Description, '') AS [GlobalDimensionValue],
+  ISNULL(dav.recid, 0) AS [Recid],
+  ISNULL(dav.recversion, 0) AS [Recversion],
+  ISNULL(dav.lhname, '') AS [LHName],
+  CONVERT(varchar(20), ISNULL(dav.dpcreateddatetime, '1900-01-01'), 120) AS DPCreatedDateTime,  
+ CONVERT(varchar(20), ISNULL(dav.dpmodifieddatetime, '1900-01-01'), 120) AS DPModifiedDateTime, 
+  dav.isdelete
+  from (SELECT * FROM  [LH_Finance].[dbo].[dimensionattributevalue] WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as dav
+  left join  [LH_Finance].[dbo].[dimensionattribute] as da
+  on da.recid = dav.dimensionattribute  and da.lhname = dav.lhname 
+  left join  [LH_Finance].[dbo].[dimensionfinancialtag] as dft
+  on dav.entityinstance = dft.recid AND  dav.lhname = dft.lhname
+  left join  [LH_Finance].[dbo].[dimensionattributelevelvalue] as dalv
+  on dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname
+  left join  [LH_Finance].[dbo].[dimensionattributevaluegroupcombination] davg
+  on davg.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = davg.lhname
+  LEFT JOIN [LH_Finance].[dbo].[hcmworker] hcmw
+  ON COALESCE(dav.displayvalue, dalv.displayvalue, '') = hcmw.personnelnumber AND dav.lhname = hcmw.lhname
+  LEFT JOIN [LH_Finance].[dbo].[dirpartytable] dpt
+  ON hcmw.person = dpt.recid AND hcmw.lhname = dpt.lhname
+  left join  [LH_Finance].[dbo].[financeglobaldimensionvalues] fgv
+  ON coalesce(dav.displayvalue, dalv.displayvalue, '') = fgv.Dimension_value
+ where da.name = 'Worker' AND coalesce(dav.displayvalue, dalv.displayvalue, '') <> '' and dav.isdelete=0
+)
+
+SELECT 
+    COUNT(*)
+FROM SourceData
+WHERE DPCreatedDateTime = (SELECT MAX(DPCreatedDateTime) FROM SourceData);",SELECT COUNT(*) FROM enterprise_dwh.Finance.{table_name} WHERE dpcreateddatetime = (Select max(dpcreateddatetime) from enterprise_dwh.Finance.{table_name} ),row_count_comparison,FALSE,Verifying  active record count between Silver and Gold,major,,,DIM_Worker,,,,,,,,,,,,,,,,,,,,,
+test_12,inserted records ,"select   recid,recversion,isdelete,dpcreateddatetime,dpmodifieddatetime from(      SELECT DISTINCT
+  ISNULL(da.name, '') AS [WorkerName],
+  ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [WorkerValue],
+  ISNULL(dft.description, '') AS [WorkerDescription],
+    CONVERT(varchar(20), ISNULL(dav.activefrom, '1900-01-01'), 120) AS [ActiveFrom],    -- UPDATED
+ CONVERT(varchar(20), ISNULL(dav.activeto, '1900-01-01'), 120) AS [ActiveTo],    
+  ISNULL(dav.issuspended, 0) AS [IsSuspended],
+  ISNULL(fgv.Description, '') AS [GlobalDimensionValue],
+  ISNULL(dav.recid, 0) AS [Recid],
+  ISNULL(dav.recversion, 0) AS [Recversion],
+  ISNULL(dav.lhname, '') AS [LHName],
+  CONVERT(varchar(20), ISNULL(dav.dpcreateddatetime, '1900-01-01'), 120) AS DPCreatedDateTime,  -- UPDATED
+ CONVERT(varchar(20), ISNULL(dav.dpmodifieddatetime, '1900-01-01'), 120) AS DPModifiedDateTime, -- UPDATED
+  dav.isdelete
+  from (SELECT * FROM  [LH_Finance].[dbo].[dimensionattributevalue] WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as dav
+  left join  [LH_Finance].[dbo].[dimensionattribute] as da
+  on da.recid = dav.dimensionattribute  and da.lhname = dav.lhname 
+  left join  [LH_Finance].[dbo].[dimensionfinancialtag] as dft
+  on dav.entityinstance = dft.recid AND  dav.lhname = dft.lhname
+  left join  [LH_Finance].[dbo].[dimensionattributelevelvalue] as dalv
+  on dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname
+  left join  [LH_Finance].[dbo].[dimensionattributevaluegroupcombination] davg
+  on davg.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = davg.lhname
+  LEFT JOIN [LH_Finance].[dbo].[hcmworker] hcmw
+  ON COALESCE(dav.displayvalue, dalv.displayvalue, '') = hcmw.personnelnumber AND dav.lhname = hcmw.lhname
+  LEFT JOIN [LH_Finance].[dbo].[dirpartytable] dpt
+  ON hcmw.person = dpt.recid AND hcmw.lhname = dpt.lhname
+  left join  [LH_Finance].[dbo].[financeglobaldimensionvalues] fgv
+  ON coalesce(dav.displayvalue, dalv.displayvalue, '') = fgv.Dimension_value
+ where da.name = 'Worker' AND coalesce(dav.displayvalue, dalv.displayvalue, '') <> ''and dav.isdelete=0) X 
+ where recid IN ({recid_list}) 
+ order by 4 desc","select top 10 percent recid ,recversion,dpcreateddatetime,dpmodifieddatetime FROM enterprise_dwh.Finance.{table_name}
+order by 4 desc",insert_record_validation_group,FALSE,Verifying inserted record count between Silver and Gold,major,,,DIM_Worker,,,,,,,,,,,,,,,,,,,,,
+test_13,active records count," select count(*) from (
+select recid, recversion, dpcreateddatetime, dpmodifieddatetime, isdelete from(  SELECT DISTINCT
+        ISNULL(MA.mainaccountid, '') AS [MainAccountID],
+        ISNULL(MA.name, '') AS [MainAccountName],
+        ISNULL(LCOA.name, '') AS [ChartOfAccounts],
+        ISNULL(MA.[type], '') AS [Type],
+        ISNULL(Enum.elementname, '') AS TypeDescription,
+        ISNULL(MA.closing, '') AS [Closing],
+        ISNULL(MAC.accountcategory, '') AS [AccountCategory],
+        ISNULL(MAC.description, '') AS [CategoryDescription],
+        CONVERT(varchar(20),ISNULL(DAV.activefrom,'1900-01-01'),120) AS [Activefrom],
+        CONVERT(varchar(20),ISNULL(DAV.activeto,'1900-01-01'),120) AS [Activeto],
+        ISNULL(MA.consolidationmainaccount, '') AS [ConsolidationMainAccount],
+        ISNULL(AGC.globalconsolidationacctname, '') AS [GlobalConsolidationAcctName],
+        ISNULL(MA.debitcreditproposal, 0) [DefaultDebitCredit],
+        ISNULL(MA.recversion, 0) AS [RecVersion],
+        ISNULL(MA.recid, 0) AS [Recid],
+        ISNULL(MA.lhname, '') AS [LHName],
+        CONVERT(varchar(20),ISNULL(MA.dpcreateddatetime,'1900-01-01'),120) AS DPCreatedDateTime,
+        CONVERT(varchar(20),ISNULL(MA.dpmodifieddatetime,'1900-01-01'),120) AS DPModifiedDateTime,
+        MA.isdelete
+    FROM (SELECT * FROM  [mainaccount] Mav --ISNULL((SELECT MaxProcessedDate FROM #MaxProcessedDate WHERE LHName = davp.LHName), '1900-01-01')) as dav
+    WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as MA
+        LEFT JOIN  [ledgerchartofaccounts] LCOA 
+            ON MA.ledgerchartofaccounts = LCOA.recid AND MA.lhname = LCOA.lhname
+        LEFT JOIN  [mainaccountcategory] MAC 
+            ON MA.accountcategoryref = MAC.accountcategoryref AND MA.lhname = MAC.lhname
+        LEFT JOIN  [dimensionattributevalue] DAV 
+            ON MA.recid = DAV.entityinstance AND MA.lhname = DAV.lhname
+        LEFT JOIN  [dimensionattribute] DA 
+            ON DAV.dimensionattribute = DA.recid AND DA.type = 2 AND MA.lhname = DA.lhname
+        LEFT JOIN  [altglobalcoaconsolidation] AGC 
+            ON AGC.globalconsolidationcode = MA.consolidationmainaccount AND MA.lhname = AGC.lhname
+        LEFT JOIN  [enum] Enum 
+            ON MA.[type] = Enum.elementvalue AND Enum.tablename = 'MainAccount' AND Enum.fieldname = 'Type'
+    WHERE DA.Type = 2 and MA.isdelete =0 ) X
+) as a",SELECT COUNT(*) FROM enterprise_dwh.Finance.{table_name}  WHERE IsDelete <> 1,row_count_comparison,FALSE,Validate active record count between Silver and Gold,major,,,DIM_MainAccount,,,,,,,,,,,,,,,,,,,MainAccount,,
+test_14,column value validation reference,"select lhname as LHName ,count(*) as Rowcounts from(       SELECT DISTINCT
+        ISNULL(MA.mainaccountid, '') AS [MainAccountID],
+        ISNULL(MA.name, '') AS [MainAccountName],
+        ISNULL(LCOA.name, '') AS [ChartOfAccounts],
+        ISNULL(MA.[type], '') AS [Type],
+        ISNULL(Enum.elementname, '') AS TypeDescription,
+        ISNULL(MA.closing, '') AS [Closing],
+        ISNULL(MAC.accountcategory, '') AS [AccountCategory],
+        ISNULL(MAC.description, '') AS [CategoryDescription],
+        CONVERT(varchar(20),ISNULL(DAV.activefrom,'1900-01-01'),120) AS [Activefrom],
+        CONVERT(varchar(20),ISNULL(DAV.activeto,'1900-01-01'),120) AS [Activeto],
+        ISNULL(MA.consolidationmainaccount, '') AS [ConsolidationMainAccount],
+        ISNULL(AGC.globalconsolidationacctname, '') AS [GlobalConsolidationAcctName],
+        ISNULL(MA.debitcreditproposal, 0) [DefaultDebitCredit],
+        ISNULL(MA.recversion, 0) AS [RecVersion],
+        ISNULL(MA.recid, 0) AS [Recid],
+        ISNULL(MA.lhname, '') AS [LHName],
+        CONVERT(varchar(20),ISNULL(MA.dpcreateddatetime,'1900-01-01'),120) AS DPCreatedDateTime,
+        CONVERT(varchar(20),ISNULL(MA.dpmodifieddatetime,'1900-01-01'),120) AS DPModifiedDateTime,
+        MA.isdelete
+    FROM (SELECT * FROM [LH_Finance].[dbo].[mainaccount] Mav
+    WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as  MA
+        LEFT JOIN [LH_Finance].[dbo].[ledgerchartofaccounts] LCOA 
+            ON MA.ledgerchartofaccounts = LCOA.recid AND MA.lhname = LCOA.lhname
+        LEFT JOIN [LH_Finance].[dbo].[mainaccountcategory] MAC 
+            ON MA.accountcategoryref = MAC.accountcategoryref AND MA.lhname = MAC.lhname
+        LEFT JOIN [LH_Finance].[dbo].[dimensionattributevalue] DAV 
+            ON MA.recid = DAV.entityinstance AND MA.lhname = DAV.lhname
+        LEFT JOIN [LH_Finance].[dbo].[dimensionattribute] DA 
+            ON DAV.dimensionattribute = DA.recid AND DA.type = 2 AND MA.lhname = DA.lhname
+        LEFT JOIN [LH_Finance].[dbo].[altglobalcoaconsolidation] AGC 
+            ON AGC.globalconsolidationcode = MA.consolidationmainaccount AND MA.lhname = AGC.lhname
+        LEFT JOIN [LH_Finance].[dbo].[enum] Enum 
+            ON MA.[type] = Enum.elementvalue AND Enum.tablename = 'MainAccount' AND Enum.fieldname = 'Type'
+    WHERE DA.Type = 2  and dav.isdelete=0 ) X group by lhname order by 1","SELECT LHName, COUNT(*) AS Rowcounts FROM enterprise_dwh.Finance.{table_name} GROUP BY LHName order by 1",column_value_validation,FALSE,Validate active record count between Silver and Gold,major,,,DIM_MainAccount,,,,,,,,"LHName, Rowcounts",,,,,,,,,,,MainAccount,,
+test_15,new records from source exist in destination,"WITH SourceData AS (
+    SELECT DISTINCT
+        ISNULL(MA.mainaccountid, '') AS [MainAccountID],
+        ISNULL(MA.name, '') AS [MainAccountName],
+        ISNULL(LCOA.name, '') AS [ChartOfAccounts],
+        ISNULL(MA.[type], '') AS [Type],
+        ISNULL(Enum.elementname, '') AS TypeDescription,
+        ISNULL(MA.closing, '') AS [Closing],
+        ISNULL(MAC.accountcategory, '') AS [AccountCategory],
+        ISNULL(MAC.description, '') AS [CategoryDescription],
+        CONVERT(varchar(20),ISNULL(DAV.activefrom,'1900-01-01'),120) AS [Activefrom],
+        CONVERT(varchar(20),ISNULL(DAV.activeto,'1900-01-01'),120) AS [Activeto],
+        ISNULL(MA.consolidationmainaccount, '') AS [ConsolidationMainAccount],
+        ISNULL(AGC.globalconsolidationacctname, '') AS [GlobalConsolidationAcctName],
+        ISNULL(MA.debitcreditproposal, 0) [DefaultDebitCredit],
+        ISNULL(MA.recversion, 0) AS [RecVersion],
+        ISNULL(MA.recid, 0) AS [Recid],
+        ISNULL(MA.lhname, '') AS [LHName],
+        CONVERT(varchar(20),ISNULL(MA.dpcreateddatetime,'1900-01-01'),120) AS DPCreatedDateTime,
+        CONVERT(varchar(20),ISNULL(MA.dpmodifieddatetime,'1900-01-01'),120) AS DPModifiedDateTime,
+        MA.isdelete
+    FROM (SELECT * FROM [LH_Finance].[dbo].[mainaccount] Mav
+    WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as MA
+        LEFT JOIN [LH_Finance].[dbo].[ledgerchartofaccounts] LCOA 
+            ON MA.ledgerchartofaccounts = LCOA.recid AND MA.lhname = LCOA.lhname
+        LEFT JOIN [LH_Finance].[dbo].[mainaccountcategory] MAC 
+            ON MA.accountcategoryref = MAC.accountcategoryref AND MA.lhname = MAC.lhname
+        LEFT JOIN [LH_Finance].[dbo].[dimensionattributevalue] DAV 
+            ON MA.recid = DAV.entityinstance AND MA.lhname = DAV.lhname
+        LEFT JOIN [LH_Finance].[dbo].[dimensionattribute] DA 
+            ON DAV.dimensionattribute = DA.recid AND DA.type = 2 AND MA.lhname = DA.lhname
+        LEFT JOIN [LH_Finance].[dbo].[altglobalcoaconsolidation] AGC 
+            ON AGC.globalconsolidationcode = MA.consolidationmainaccount AND MA.lhname = AGC.lhname
+        LEFT JOIN [LH_Finance].[dbo].[enum] Enum 
+            ON MA.[type] = Enum.elementvalue AND Enum.tablename = 'MainAccount' AND Enum.fieldname = 'Type'
+    WHERE DA.Type = 2 and MA.isdelete=0
+)
+ 
+SELECT 
+    COUNT(*)
+FROM SourceData
+WHERE DPCreatedDateTime = (SELECT MAX(DPCreatedDateTime) FROM SourceData)",SELECT COUNT(*) FROM enterprise_dwh.Finance.{table_name} WHERE dpcreateddatetime = (Select max(dpcreateddatetime) from enterprise_dwh.Finance.{table_name} ),row_count_comparison,FALSE,Verifying  active record count between Silver and Gold,major,,,DIM_MainAccount,,,,,,,,,,,,,,,,,,,MainAccount,,
+test_16,inserted records ,"select   recid,recversion,isdelete,dpcreateddatetime,dpmodifieddatetime from(     SELECT DISTINCT
+        ISNULL(MA.mainaccountid, '') AS [MainAccountID],
+        ISNULL(MA.name, '') AS [MainAccountName],
+        ISNULL(LCOA.name, '') AS [ChartOfAccounts],
+        ISNULL(MA.[type], '') AS [Type],
+        ISNULL(Enum.elementname, '') AS TypeDescription,
+        ISNULL(MA.closing, '') AS [Closing],
+        ISNULL(MAC.accountcategory, '') AS [AccountCategory],
+        ISNULL(MAC.description, '') AS [CategoryDescription],
+        CONVERT(varchar(20),ISNULL(DAV.activefrom,'1900-01-01'),120) AS [Activefrom],
+        CONVERT(varchar(20),ISNULL(DAV.activeto,'1900-01-01'),120) AS [Activeto],
+        ISNULL(MA.consolidationmainaccount, '') AS [ConsolidationMainAccount],
+        ISNULL(AGC.globalconsolidationacctname, '') AS [GlobalConsolidationAcctName],
+        ISNULL(MA.debitcreditproposal, 0) [DefaultDebitCredit],
+        ISNULL(MA.recversion, 0) AS [RecVersion],
+        ISNULL(MA.recid, 0) AS [Recid],
+        ISNULL(MA.lhname, '') AS [LHName],
+        CONVERT(varchar(20),ISNULL(MA.dpcreateddatetime,'1900-01-01'),120) AS DPCreatedDateTime,
+        CONVERT(varchar(20),ISNULL(MA.dpmodifieddatetime,'1900-01-01'),120) AS DPModifiedDateTime,
+        MA.isdelete
+    FROM (SELECT * FROM [dbo].[mainaccount] Mav
+    WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as MA
+        LEFT JOIN [dbo].[ledgerchartofaccounts] LCOA 
+            ON MA.ledgerchartofaccounts = LCOA.recid AND MA.lhname = LCOA.lhname
+        LEFT JOIN [dbo].[mainaccountcategory] MAC 
+            ON MA.accountcategoryref = MAC.accountcategoryref AND MA.lhname = MAC.lhname
+        LEFT JOIN [dbo].[dimensionattributevalue] DAV 
+            ON MA.recid = DAV.entityinstance AND MA.lhname = DAV.lhname
+        LEFT JOIN [dbo].[dimensionattribute] DA 
+            ON DAV.dimensionattribute = DA.recid AND DA.type = 2 AND MA.lhname = DA.lhname
+        LEFT JOIN [dbo].[altglobalcoaconsolidation] AGC 
+            ON AGC.globalconsolidationcode = MA.consolidationmainaccount AND MA.lhname = AGC.lhname
+        LEFT JOIN [dbo].[enum] Enum 
+            ON MA.[type] = Enum.elementvalue AND Enum.tablename = 'MainAccount' AND Enum.fieldname = 'Type'
+    WHERE DA.Type = 2 and MA.isdelete=0 ) X 
+where recid IN ({recid_list})  
+order by 4 desc","select top 2 percent recid ,recversion,dpcreateddatetime,dpmodifieddatetime FROM enterprise_dwh.Finance.{table_name}
+order by 4 desc",insert_record_validation_group,FALSE,Verifying inserted record count between Silver and Gold,major,,,DIM_MainAccount,,,,,,,,,,,,,,,,,,,MainAccount,,
+test_17,active records count,";WITH DimensionValues AS
+ (
+  SELECT DISTINCT DAVG.dimensionattributevaluecombination,
+    ISNULL(da.name, '') AS [name],
+    ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [value],
+    DAVG.lhname,
+    DAVC.recid,
+    DAVC.costcentervalue,
+    DAVC.departmentvalue,
+    DAVC.businesssegmentvalue,
+    DAVC.sitevalue,
+    DAVC.intercompanyvalue,
+    DAVC.projectcodevalue,
+    DAVC.workervalue,
+    DAVC.customertypevalue,
+    DAV.recid DAVRECID
+  FROM [lh_finance_silver].[lh_finance].dimensionattributevaluecombination DAVC
+    left join [lh_finance_silver].[lh_finance].[dimensionattributevaluegroupcombination] DAVG
+    ON DAVG.dimensionattributevaluecombination = DAVC.recid AND DAVG.lhname = DAVC.lhname
+    left join [lh_finance_silver].[lh_finance].[dimensionattributelevelvalue] as dalv
+    on DAVG.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = DAVG.lhname
+    left join [lh_finance_silver].[lh_finance].[dimensionattributevalue] as dav
+    ON dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname AND dalv.partition = dav.partition
+    left join [lh_finance_silver].[lh_finance].[dimensionattribute] as da
+    on da.recid = dav.dimensionattribute AND da.partition = dav.partition and da.lhname = dav.lhname
+ ),
+ LatestStatus AS (
+     SELECT
+         wtst2.[partition],
+         wtst2.recid,
+         wtst2.contextrecid,
+         wtst2.contextcompanyid,
+   wtst2.lhname
+     FROM (
+         SELECT
+     wtst2.*,
+     ROW_NUMBER() OVER (
+         PARTITION BY wtst2.contextrecid
+         ORDER BY wtst2.recid DESC
+     ) AS rn
+         FROM [lh_finance_silver].[lh_finance].[workflowtrackingstatustable] wtst2
+     JOIN [lh_finance_silver].[lh_finance].[sqldictionary] sd ON sd.tableid = wtst2.contexttableid AND sd.fieldid = 0 AND sd.lhname = wtst2.lhname
+         WHERE sd.name = 'LedgerJournalTable'
+     ) wtst2
+     WHERE wtst2.rn = 1
+ ),
+ TrackingTop AS (
+     SELECT
+    wtst.contextrecid,
+    wtst.contextcompanyid,
+    REPLACE(ui.name, ',', ' ') AS name,
+    wtct.createddatetime,
+    wtt.trackingtype,
+    ROW_NUMBER() OVER (
+        PARTITION BY wtst.contextrecid, wtt.trackingtype
+        ORDER BY wtt.recid DESC
+    ) AS rn
+     FROM [lh_finance_silver].[lh_finance].[workflowtrackingtable] wtt
+    JOIN LatestStatus wtst ON wtst.[partition] = wtt.[partition] AND wtst.recid = wtt.workflowtrackingstatustable AND wtt.lhname = wtst.lhname
+    JOIN [lh_finance_silver].[lh_finance].[workflowtrackingcommenttable] wtct ON wtct.[partition] = wtt.[partition] AND wtct.workflowtrackingtable = wtt.recid AND wtt.lhname = wtct.lhname
+    JOIN [lh_finance_silver].[lh_finance].[userinfo] ui ON ui.[partition] = wtt.[partition] AND ui.id = wtt.[user_] AND ui.lhname = wtt.lhname
+     WHERE wtt.trackingtype IN (4, 23)
+ ),
+ wf AS (
+  SELECT
+      contextrecid,
+      MIN(CASE WHEN trackingtype = 23 THEN name             END) AS submitted_by,
+      MIN(CASE WHEN trackingtype = 23 THEN createddatetime  END) AS submitted_date,
+      MIN(CASE WHEN trackingtype = 4  THEN name             END) AS approved_by,
+      MIN(CASE WHEN trackingtype = 4  THEN createddatetime  END) AS approved_date
+  FROM TrackingTop
+  WHERE rn = 1
+  GROUP BY contextrecid
+ ),
+ LJT_1 AS (
+  SELECT *
+  FROM (
+   SELECT
+     ljt.*,
+     ROW_NUMBER() OVER (
+     PARTITION BY ljt.lhname, ljt.dataareaid, ljt.journalnum
+     ORDER BY
+      COALESCE(ljt.dpmodifieddatetime, ljt.posteddatetime, ljt.createddatetime) DESC,
+      ljt.recid DESC
+     ) rn
+   FROM lh_finance_silver.lh_finance.ledgerjournaltable ljt
+   WHERE ljt.posted = 1
+  ) x
+  WHERE rn = 1
+ )
+select count(*) from ( 
+ SELECT 
+  NULL PK_Fact_GL,
+  ISNULL(GJAE.accountingcurrencyamount, 0) AS [Amount],
+  ISNULL(GJAE.reportingcurrencyamount, 0) AS [AmountInReportingCurrency],
+  ISNULL(GJAE.transactioncurrencyamount, 0) AS [AmountInTransactionCurrency],
+  ISNULL(GJAE.postingtype , 0) AS [PostingType],
+  ISNULL(GJAE.ledgeraccount, '') AS [LedgerAccount],
+  ISNULL(GJAE.text, '') AS [Text],
+  ISNULL(GJE.journalnumber, '') AS [JournalNumber],
+  ISNULL(GJE.subledgervoucher, '') AS [SubledgerVoucher],
+  ISNULL(LJT.createdby, '') AS [CreatedBy],
+  ISNULL(LJT.createddatetime, '1900-01-01') AS [CreatedDateTime],
+  ISNULL(GJE.postinglayer, 0) AS [Postinglayer],
+  ISNULL(GJE.accountingdate, '1900-01-01') AS [AccountingDate],
+  ISNULL(LJT.journalnum , '') AS [JournalBatchNumber],
+  ISNULL(LJT.name , '') AS [JournalBatchDesc],
+  ISNULL(LJT.approver, '') AS [ApprovedBy],
+  ISNULL(LJT.journalname, '') AS [Name],
+  ISNULL(LJT.posteddatetime, '1900-01-01') AS [PostedOn],
+  ISNULL(LJT.reverseentry, 0) AS [ReversingEntry],
+  ISNULL(LJT.reversedate, '1900-01-01') AS [ReversingDate],
+  ISNULL(LJT.rejectedby, '') AS [RejectedBy],
+  ISNULL(LJT.offsetaccounttype, 0) AS [OffsetAccountType],
+  ISNULL(LJT.journaltotaloffsetbalance, 0) AS [BalanceJournal],
+  ISNULL(LJT.journaltotaldebitreportingcurrency, 0) AS [DebitTotalReportingCurrency],
+  ISNULL(LJT.journaltotalcreditreportingcurrency, 0) AS [CreditTotalReportingCurrency],
+  ISNULL(LJT.numoflines, 0) AS [Lines],
+  ISNULL(DD.PK_Date, 0) AS [FK_Date],
+  ISNULL(DMA.PK_MainAccount, 0) AS [FK_MainAccount],
+  ISNULL(DDept.PK_Department, 0) AS [FK_Department],
+  ISNULL(DBS.PK_BusinessSegment, 0) AS [FK_BusinessSegment],
+  ISNULL(DS.PK_Site, 0) AS [FK_Site],
+  ISNULL(DW.PK_Worker, 0) AS [FK_Worker],
+  ISNULL(DCC.PK_CostCenter, 0) AS [FK_CostCenter],
+  ISNULL(DCType.PK_customertype, '') AS [FK_CustomerType],
+  ISNULL(DIC.PK_Entity, 0) AS FK_Entity,
+  ISNULL(GJAE.recid, 0) AS [RecID],
+  ISNULL(GJAE.recversion, 0) AS [RecVersion],
+  ISNULL(GJAE.lhname, '') AS [LHName],
+  ISNULL(GJAE.isdelete, 0) AS [IsDelete],
+  ISNULL(replace(wf.submitted_by, ',', ' '),'') as WFSubmittedBy,  
+  ISNULL(wf.submitted_date,'') as SubmittedDate,  
+  ISNULL(replace(wf.approved_by, ',', ' '),'') as WFApprovedBy,  
+  ISNULL(wf.approved_date,'') as WFApprovedDate ,
+  UPPER(GJE.subledgervoucherdataareaid) DataAreaID,
+  GJE.DPCreatedDatetime,
+  GJE.DPModifiedDatetime
+ from [lh_finance_silver].[lh_finance].generaljournalentry GJE
+  LEFT JOIN [lh_finance_silver].[lh_finance].generaljournalaccountentry GJAE 
+   on  GJE.recid = GJAE.generaljournalentry AND GJE.lhname = GJAE.lhname
+  LEFT JOIN [lh_finance_silver].[lh_finance].dimensionattributevaluecombination DAVC
+   on  DAVC.recid = GJAE.ledgerdimension AND DAVC.lhname = GJAE.lhname
+  LEFT JOIN [lh_finance_silver].[lh_finance].ledgerentryjournal LEJ
+   on LEJ.recid = GJE.ledgerentryjournal AND LEJ.lhname = GJE.lhname
+  left join LJT_1 LJT
+   on LJT.journalnum = LEJ.journalnumber AND LJT.lhname = LEJ.lhname and GJE.subledgervoucherdataareaid = LJT.dataareaid --AND LJT.posted = 1
+  left join [lh_finance_silver].[lh_finance].[ledger] L
+   on GJE.ledger = L.recid AND GJE.lhname = L.lhname
+  left join [lh_finance_silver].[lh_finance].[ledgerchartofaccounts] LCOA
+   on L.chartofaccounts = LCOA.recid AND L.lhname = LCOA.lhname
+  left join [lh_finance_silver].[lh_finance].mainaccount MA
+   on MA.recid = DAVC.mainaccount AND MA.lhname = DAVC.lhname
+  left join (SELECT * FROM Finance.DIM_MainAccount WHERE IsDelete = 0) DMA 
+   ON DMA.MainAccountID = MA.mainaccountid AND DMA.LHName = MA.lhname /*AND MA.consolidationmainaccount = DMA.ConsolidationMainAccount*/ AND LCOA.name = DMA.ChartOfAccounts
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'CostCenter') DVCC
+   ON GJAE.ledgerdimension = DVCC.recid AND GJAE.lhname = DVCC.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_CostCenter WHERE IsSuspended = 0 AND IsDelete = 0) DCC
+   ON coalesce(DVCC.costcentervalue, DVCC.[value], '') = DCC.CostCenterValue --AND DVCC.lhname = DCC.LHName 
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Department') DVD  
+   ON GJAE.ledgerdimension = DVD.recid AND GJAE.lhname = DVD.lhname
+  LEFT JOIN Finance.DIM_Department DDept
+   ON coalesce(DVD.departmentvalue, DVD.[value], '') = DDept.DepartmentValue --AND DVD.lhname = DDept.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'CustomerType') DVCT  
+   ON GJAE.ledgerdimension = DVCT.recid AND GJAE.lhname = DVCT.lhname
+  LEFT JOIN Finance.DIM_CustomerType DCType
+   ON coalesce(DVCT.customertypevalue, DVCT.[value], '') = DCType.CustomerTypeValue
+  left join (SELECT DISTINCT * FROM DimensionValues WHERE [name] = 'Site') DVS   
+   ON GJAE.ledgerdimension = DVS.recid AND GJAE.lhname = DVS.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_Site WHERE IsSuspended = 0 AND IsDelete = 0) DS
+   ON coalesce(DVS.sitevalue, DVS.[value], '') = DS.SiteValue AND DAVC.lhname = DS.LHName AND DVS.DAVRECID = DS.Recid
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Intercompany') DVIC   
+   ON GJAE.ledgerdimension = DVIC.recid AND GJAE.lhname = DVIC.lhname
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DIC
+   ON UPPER(GJE.Subledgervoucherdataareaid) = UPPER(DIC.DataAreaID) COLLATE Latin1_General_100_CI_AS_KS_WS_SC_UTF8 --AND DVIC.lhname = DIC.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Worker') DVW  
+   ON GJAE.ledgerdimension = DVW.recid AND GJAE.lhname = DVW.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_Worker WHERE IsSuspended = 0 AND IsDelete = 0) DW
+   ON coalesce(DVW.workervalue, DVW.[value], '') = DW.WorkerValue AND DAVC.lhname = DW.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'BusinessSegment') DVBS   --SELECT * FROM DimensionValues WHERE [name] = 'CostCenter'
+   ON GJAE.ledgerdimension = DVBS.recid AND GJAE.lhname = DVBS.lhname
+  LEFT JOIN (SELECT DISTINCT * FROM [global_dw_dev].[GLD].[DIM_BusinessSegment]) DBS
+   ON UPPER(coalesce(DVBS.businesssegmentvalue, DVBS.[value], '')) = UPPER(DBS.BusinessSegment) COLLATE Latin1_General_100_CI_AS_KS_WS_SC_UTF8--AND DAVC.lhname = DCC.LHName
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD
+   ON GJE.accountingdate = DD.Fulldate
+  LEFT JOIN wf  ON wf.contextrecid = LJT.recid
+  -- LEFT JOIN #MaxProcessedDate M ON GJE.lhname = M.LHName
+ Where /*GJE.dpmodifieddatetime > ISNULL(M.MaxProcessedDate, '1900-01-01')
+  AND*/(
+      (gjae.LHName = 'LH_D365_NAADD_PRD'
+       AND UPPER(gje.subledgervoucherdataareaid) = 'CRP'
+       AND gje.accountingdate >= '2025-05-01')
+  
+   OR (gjae.LHName = 'LH_D365_NAADD_PRD'
+       AND UPPER(gje.subledgervoucherdataareaid) <> 'CRP'
+       AND gje.accountingdate >= '2025-01-01')
+  
+   OR (gjae.LHName = 'LH_AX_APAC'
+       AND gje.accountingdate >= '2025-01-01')
+   
+   -- ""Else"": everything that does NOT meet either of the two specific cases above
+   OR (gjae.LHName <> 'LH_D365_NAADD_PRD' OR gjae.LHName IS NULL)
+  )  and GJE.isdelete =0
+) as a
+",SELECT COUNT(*) FROM enterprise_dwh.Finance.Fact_GL WHERE IsDelete <> 1;,row_count_comparison,FALSE,Validate active record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_18,column value validation reference,";WITH DimensionValues AS
+ (
+  SELECT DISTINCT DAVG.dimensionattributevaluecombination,
+    ISNULL(da.name, '') AS [name],
+    ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [value],
+    DAVG.lhname,
+    DAVC.recid,
+    DAVC.costcentervalue,
+    DAVC.departmentvalue,
+    DAVC.businesssegmentvalue,
+    DAVC.sitevalue,
+    DAVC.intercompanyvalue,
+    DAVC.projectcodevalue,
+    DAVC.workervalue,
+    DAVC.customertypevalue,
+    DAV.recid DAVRECID
+  FROM [lh_finance_silver].[lh_finance].dimensionattributevaluecombination DAVC
+    left join [lh_finance_silver].[lh_finance].[dimensionattributevaluegroupcombination] DAVG
+    ON DAVG.dimensionattributevaluecombination = DAVC.recid AND DAVG.lhname = DAVC.lhname
+    left join [lh_finance_silver].[lh_finance].[dimensionattributelevelvalue] as dalv
+    on DAVG.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = DAVG.lhname
+    left join [lh_finance_silver].[lh_finance].[dimensionattributevalue] as dav
+    ON dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname AND dalv.partition = dav.partition
+    left join [lh_finance_silver].[lh_finance].[dimensionattribute] as da
+    on da.recid = dav.dimensionattribute AND da.partition = dav.partition and da.lhname = dav.lhname
+ ),
+ LatestStatus AS (
+     SELECT
+         wtst2.[partition],
+         wtst2.recid,
+         wtst2.contextrecid,
+         wtst2.contextcompanyid,
+   wtst2.lhname
+     FROM (
+         SELECT
+     wtst2.*,
+     ROW_NUMBER() OVER (
+         PARTITION BY wtst2.contextrecid
+         ORDER BY wtst2.recid DESC
+     ) AS rn
+         FROM [lh_finance_silver].[lh_finance].[workflowtrackingstatustable] wtst2
+     JOIN [lh_finance_silver].[lh_finance].[sqldictionary] sd ON sd.tableid = wtst2.contexttableid AND sd.fieldid = 0 AND sd.lhname = wtst2.lhname
+         WHERE sd.name = 'LedgerJournalTable'
+     ) wtst2
+     WHERE wtst2.rn = 1
+ ),
+ TrackingTop AS (
+     SELECT
+    wtst.contextrecid,
+    wtst.contextcompanyid,
+    REPLACE(ui.name, ',', ' ') AS name,
+    wtct.createddatetime,
+    wtt.trackingtype,
+    ROW_NUMBER() OVER (
+        PARTITION BY wtst.contextrecid, wtt.trackingtype
+        ORDER BY wtt.recid DESC
+    ) AS rn
+     FROM [lh_finance_silver].[lh_finance].[workflowtrackingtable] wtt
+    JOIN LatestStatus wtst ON wtst.[partition] = wtt.[partition] AND wtst.recid = wtt.workflowtrackingstatustable AND wtt.lhname = wtst.lhname
+    JOIN [lh_finance_silver].[lh_finance].[workflowtrackingcommenttable] wtct ON wtct.[partition] = wtt.[partition] AND wtct.workflowtrackingtable = wtt.recid AND wtt.lhname = wtct.lhname
+    JOIN [lh_finance_silver].[lh_finance].[userinfo] ui ON ui.[partition] = wtt.[partition] AND ui.id = wtt.[user_] AND ui.lhname = wtt.lhname
+     WHERE wtt.trackingtype IN (4, 23)
+ ),
+ wf AS (
+  SELECT
+      contextrecid,
+      MIN(CASE WHEN trackingtype = 23 THEN name             END) AS submitted_by,
+      MIN(CASE WHEN trackingtype = 23 THEN createddatetime  END) AS submitted_date,
+      MIN(CASE WHEN trackingtype = 4  THEN name             END) AS approved_by,
+      MIN(CASE WHEN trackingtype = 4  THEN createddatetime  END) AS approved_date
+  FROM TrackingTop
+  WHERE rn = 1
+  GROUP BY contextrecid
+ ),
+ LJT_1 AS (
+  SELECT *
+  FROM (
+   SELECT
+     ljt.*,
+     ROW_NUMBER() OVER (
+     PARTITION BY ljt.lhname, ljt.dataareaid, ljt.journalnum
+     ORDER BY
+      COALESCE(ljt.dpmodifieddatetime, ljt.posteddatetime, ljt.createddatetime) DESC,
+      ljt.recid DESC
+     ) rn
+   FROM lh_finance_silver.lh_finance.ledgerjournaltable ljt
+   WHERE ljt.posted = 1
+  ) x
+  WHERE rn = 1
+ )
+select lhname,count(*) from ( 
+ SELECT 
+  NULL PK_Fact_GL,
+  ISNULL(GJAE.accountingcurrencyamount, 0) AS [Amount],
+  ISNULL(GJAE.reportingcurrencyamount, 0) AS [AmountInReportingCurrency],
+  ISNULL(GJAE.transactioncurrencyamount, 0) AS [AmountInTransactionCurrency],
+  ISNULL(GJAE.postingtype , 0) AS [PostingType],
+  ISNULL(GJAE.ledgeraccount, '') AS [LedgerAccount],
+  ISNULL(GJAE.text, '') AS [Text],
+  ISNULL(GJE.journalnumber, '') AS [JournalNumber],
+  ISNULL(GJE.subledgervoucher, '') AS [SubledgerVoucher],
+  ISNULL(LJT.createdby, '') AS [CreatedBy],
+  ISNULL(LJT.createddatetime, '1900-01-01') AS [CreatedDateTime],
+  ISNULL(GJE.postinglayer, 0) AS [Postinglayer],
+  ISNULL(GJE.accountingdate, '1900-01-01') AS [AccountingDate],
+  ISNULL(LJT.journalnum , '') AS [JournalBatchNumber],
+  ISNULL(LJT.name , '') AS [JournalBatchDesc],
+  ISNULL(LJT.approver, '') AS [ApprovedBy],
+  ISNULL(LJT.journalname, '') AS [Name],
+  ISNULL(LJT.posteddatetime, '1900-01-01') AS [PostedOn],
+  ISNULL(LJT.reverseentry, 0) AS [ReversingEntry],
+  ISNULL(LJT.reversedate, '1900-01-01') AS [ReversingDate],
+  ISNULL(LJT.rejectedby, '') AS [RejectedBy],
+  ISNULL(LJT.offsetaccounttype, 0) AS [OffsetAccountType],
+  ISNULL(LJT.journaltotaloffsetbalance, 0) AS [BalanceJournal],
+  ISNULL(LJT.journaltotaldebitreportingcurrency, 0) AS [DebitTotalReportingCurrency],
+  ISNULL(LJT.journaltotalcreditreportingcurrency, 0) AS [CreditTotalReportingCurrency],
+  ISNULL(LJT.numoflines, 0) AS [Lines],
+  ISNULL(DD.PK_Date, 0) AS [FK_Date],
+  ISNULL(DMA.PK_MainAccount, 0) AS [FK_MainAccount],
+  ISNULL(DDept.PK_Department, 0) AS [FK_Department],
+  ISNULL(DBS.PK_BusinessSegment, 0) AS [FK_BusinessSegment],
+  ISNULL(DS.PK_Site, 0) AS [FK_Site],
+  ISNULL(DW.PK_Worker, 0) AS [FK_Worker],
+  ISNULL(DCC.PK_CostCenter, 0) AS [FK_CostCenter],
+  ISNULL(DCType.PK_customertype, '') AS [FK_CustomerType],
+  ISNULL(DIC.PK_Entity, 0) AS FK_Entity,
+  ISNULL(GJAE.recid, 0) AS [RecID],
+  ISNULL(GJAE.recversion, 0) AS [RecVersion],
+  ISNULL(GJAE.lhname, '') AS [LHName],
+  ISNULL(GJAE.isdelete, 0) AS [IsDelete],
+  ISNULL(replace(wf.submitted_by, ',', ' '),'') as WFSubmittedBy,  
+  ISNULL(wf.submitted_date,'') as SubmittedDate,  
+  ISNULL(replace(wf.approved_by, ',', ' '),'') as WFApprovedBy,  
+  ISNULL(wf.approved_date,'') as WFApprovedDate ,
+  UPPER(GJE.subledgervoucherdataareaid) DataAreaID,
+  GJE.DPCreatedDatetime,
+  GJE.DPModifiedDatetime
+ from [lh_finance_silver].[lh_finance].generaljournalentry GJE
+  LEFT JOIN [lh_finance_silver].[lh_finance].generaljournalaccountentry GJAE 
+   on  GJE.recid = GJAE.generaljournalentry AND GJE.lhname = GJAE.lhname
+  LEFT JOIN [lh_finance_silver].[lh_finance].dimensionattributevaluecombination DAVC
+   on  DAVC.recid = GJAE.ledgerdimension AND DAVC.lhname = GJAE.lhname
+  LEFT JOIN [lh_finance_silver].[lh_finance].ledgerentryjournal LEJ
+   on LEJ.recid = GJE.ledgerentryjournal AND LEJ.lhname = GJE.lhname
+  left join LJT_1 LJT
+   on LJT.journalnum = LEJ.journalnumber AND LJT.lhname = LEJ.lhname and GJE.subledgervoucherdataareaid = LJT.dataareaid --AND LJT.posted = 1
+  left join [lh_finance_silver].[lh_finance].[ledger] L
+   on GJE.ledger = L.recid AND GJE.lhname = L.lhname
+  left join [lh_finance_silver].[lh_finance].[ledgerchartofaccounts] LCOA
+   on L.chartofaccounts = LCOA.recid AND L.lhname = LCOA.lhname
+  left join [lh_finance_silver].[lh_finance].mainaccount MA
+   on MA.recid = DAVC.mainaccount AND MA.lhname = DAVC.lhname
+  left join (SELECT * FROM Finance.DIM_MainAccount WHERE IsDelete = 0) DMA 
+   ON DMA.MainAccountID = MA.mainaccountid AND DMA.LHName = MA.lhname /*AND MA.consolidationmainaccount = DMA.ConsolidationMainAccount*/ AND LCOA.name = DMA.ChartOfAccounts
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'CostCenter') DVCC
+   ON GJAE.ledgerdimension = DVCC.recid AND GJAE.lhname = DVCC.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_CostCenter WHERE IsSuspended = 0 AND IsDelete = 0) DCC
+   ON coalesce(DVCC.costcentervalue, DVCC.[value], '') = DCC.CostCenterValue --AND DVCC.lhname = DCC.LHName 
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Department') DVD  
+   ON GJAE.ledgerdimension = DVD.recid AND GJAE.lhname = DVD.lhname
+  LEFT JOIN Finance.DIM_Department DDept
+   ON coalesce(DVD.departmentvalue, DVD.[value], '') = DDept.DepartmentValue --AND DVD.lhname = DDept.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'CustomerType') DVCT  
+   ON GJAE.ledgerdimension = DVCT.recid AND GJAE.lhname = DVCT.lhname
+  LEFT JOIN Finance.DIM_CustomerType DCType
+   ON coalesce(DVCT.customertypevalue, DVCT.[value], '') = DCType.CustomerTypeValue
+  left join (SELECT DISTINCT * FROM DimensionValues WHERE [name] = 'Site') DVS   
+   ON GJAE.ledgerdimension = DVS.recid AND GJAE.lhname = DVS.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_Site WHERE IsSuspended = 0 AND IsDelete = 0) DS
+   ON coalesce(DVS.sitevalue, DVS.[value], '') = DS.SiteValue AND DAVC.lhname = DS.LHName AND DVS.DAVRECID = DS.Recid
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Intercompany') DVIC   
+   ON GJAE.ledgerdimension = DVIC.recid AND GJAE.lhname = DVIC.lhname
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DIC
+   ON UPPER(GJE.Subledgervoucherdataareaid) = UPPER(DIC.DataAreaID) COLLATE Latin1_General_100_CI_AS_KS_WS_SC_UTF8 --AND DVIC.lhname = DIC.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Worker') DVW  
+   ON GJAE.ledgerdimension = DVW.recid AND GJAE.lhname = DVW.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_Worker WHERE IsSuspended = 0 AND IsDelete = 0) DW
+   ON coalesce(DVW.workervalue, DVW.[value], '') = DW.WorkerValue AND DAVC.lhname = DW.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'BusinessSegment') DVBS   --SELECT * FROM DimensionValues WHERE [name] = 'CostCenter'
+   ON GJAE.ledgerdimension = DVBS.recid AND GJAE.lhname = DVBS.lhname
+  LEFT JOIN (SELECT DISTINCT * FROM [global_dw_dev].[GLD].[DIM_BusinessSegment]) DBS
+   ON UPPER(coalesce(DVBS.businesssegmentvalue, DVBS.[value], '')) = UPPER(DBS.BusinessSegment) COLLATE Latin1_General_100_CI_AS_KS_WS_SC_UTF8--AND DAVC.lhname = DCC.LHName
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD
+   ON GJE.accountingdate = DD.Fulldate
+  LEFT JOIN wf  ON wf.contextrecid = LJT.recid
+  -- LEFT JOIN #MaxProcessedDate M ON GJE.lhname = M.LHName
+ Where /*GJE.dpmodifieddatetime > ISNULL(M.MaxProcessedDate, '1900-01-01')
+  AND*/(
+      (gjae.LHName = 'LH_D365_NAADD_PRD'
+       AND UPPER(gje.subledgervoucherdataareaid) = 'CRP'
+       AND gje.accountingdate >= '2025-05-01')
+  
+   OR (gjae.LHName = 'LH_D365_NAADD_PRD'
+       AND UPPER(gje.subledgervoucherdataareaid) <> 'CRP'
+       AND gje.accountingdate >= '2025-01-01')
+  
+   OR (gjae.LHName = 'LH_AX_APAC'
+       AND gje.accountingdate >= '2025-01-01')
+   
+   -- ""Else"": everything that does NOT meet either of the two specific cases above
+   OR (gjae.LHName <> 'LH_D365_NAADD_PRD' OR gjae.LHName IS NULL)
+  )  and GJE.isdelete =0
+) as a  group by lhname order by 1","SELECT LHName, COUNT(*) AS counts FROM Finance.Fact_GL GROUP BY LHName order by 1;",column_value_validation,FALSE,Validate active record count between Silver and Gold,major,,,,,,,,,,,"LHName, Rowcounts",,,,,,,,,,,,Gold,Gold
+test_19,deleted records,,SELECT * FROM Finance.Fact_GL WHERE IsDelete=1;,target_zero_count_validation,FALSE,Validate active record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_20,new records from source exist in destination,";WITH DimensionValues AS
+ (
+  SELECT DISTINCT DAVG.dimensionattributevaluecombination,
+    ISNULL(da.name, '') AS [name],
+    ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [value],
+    DAVG.lhname,
+    DAVC.recid,
+    DAVC.costcentervalue,
+    DAVC.departmentvalue,
+    DAVC.businesssegmentvalue,
+    DAVC.sitevalue,
+    DAVC.intercompanyvalue,
+    DAVC.projectcodevalue,
+    DAVC.workervalue,
+    DAVC.customertypevalue,
+    DAV.recid DAVRECID
+  FROM [lh_finance_silver].[lh_finance].dimensionattributevaluecombination DAVC
+    left join [lh_finance_silver].[lh_finance].[dimensionattributevaluegroupcombination] DAVG
+    ON DAVG.dimensionattributevaluecombination = DAVC.recid AND DAVG.lhname = DAVC.lhname
+    left join [lh_finance_silver].[lh_finance].[dimensionattributelevelvalue] as dalv
+    on DAVG.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = DAVG.lhname
+    left join [lh_finance_silver].[lh_finance].[dimensionattributevalue] as dav
+    ON dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname AND dalv.partition = dav.partition
+    left join [lh_finance_silver].[lh_finance].[dimensionattribute] as da
+    on da.recid = dav.dimensionattribute AND da.partition = dav.partition and da.lhname = dav.lhname
+ ),
+ LatestStatus AS (
+     SELECT
+         wtst2.[partition],
+         wtst2.recid,
+         wtst2.contextrecid,
+         wtst2.contextcompanyid,
+   wtst2.lhname
+     FROM (
+         SELECT
+     wtst2.*,
+     ROW_NUMBER() OVER (
+         PARTITION BY wtst2.contextrecid
+         ORDER BY wtst2.recid DESC
+     ) AS rn
+         FROM [lh_finance_silver].[lh_finance].[workflowtrackingstatustable] wtst2
+     JOIN [lh_finance_silver].[lh_finance].[sqldictionary] sd ON sd.tableid = wtst2.contexttableid AND sd.fieldid = 0 AND sd.lhname = wtst2.lhname
+         WHERE sd.name = 'LedgerJournalTable'
+     ) wtst2
+     WHERE wtst2.rn = 1
+ ),
+ TrackingTop AS (
+     SELECT
+    wtst.contextrecid,
+    wtst.contextcompanyid,
+    REPLACE(ui.name, ',', ' ') AS name,
+    wtct.createddatetime,
+    wtt.trackingtype,
+    ROW_NUMBER() OVER (
+        PARTITION BY wtst.contextrecid, wtt.trackingtype
+        ORDER BY wtt.recid DESC
+    ) AS rn
+     FROM [lh_finance_silver].[lh_finance].[workflowtrackingtable] wtt
+    JOIN LatestStatus wtst ON wtst.[partition] = wtt.[partition] AND wtst.recid = wtt.workflowtrackingstatustable AND wtt.lhname = wtst.lhname
+    JOIN [lh_finance_silver].[lh_finance].[workflowtrackingcommenttable] wtct ON wtct.[partition] = wtt.[partition] AND wtct.workflowtrackingtable = wtt.recid AND wtt.lhname = wtct.lhname
+    JOIN [lh_finance_silver].[lh_finance].[userinfo] ui ON ui.[partition] = wtt.[partition] AND ui.id = wtt.[user_] AND ui.lhname = wtt.lhname
+     WHERE wtt.trackingtype IN (4, 23)
+ ),
+ wf AS (
+  SELECT
+      contextrecid,
+      MIN(CASE WHEN trackingtype = 23 THEN name             END) AS submitted_by,
+      MIN(CASE WHEN trackingtype = 23 THEN createddatetime  END) AS submitted_date,
+      MIN(CASE WHEN trackingtype = 4  THEN name             END) AS approved_by,
+      MIN(CASE WHEN trackingtype = 4  THEN createddatetime  END) AS approved_date
+  FROM TrackingTop
+  WHERE rn = 1
+  GROUP BY contextrecid
+ ),
+ LJT_1 AS (
+  SELECT *
+  FROM (
+   SELECT
+     ljt.*,
+     ROW_NUMBER() OVER (
+     PARTITION BY ljt.lhname, ljt.dataareaid, ljt.journalnum
+     ORDER BY
+      COALESCE(ljt.dpmodifieddatetime, ljt.posteddatetime, ljt.createddatetime) DESC,
+      ljt.recid DESC
+     ) rn
+   FROM lh_finance_silver.lh_finance.ledgerjournaltable ljt
+   WHERE ljt.posted = 1
+  ) x
+  WHERE rn = 1
+ ),
+
+
+SourceData AS (
+ SELECT 
+  NULL PK_Fact_GL,
+  ISNULL(GJAE.accountingcurrencyamount, 0) AS [Amount],
+  ISNULL(GJAE.reportingcurrencyamount, 0) AS [AmountInReportingCurrency],
+  ISNULL(GJAE.transactioncurrencyamount, 0) AS [AmountInTransactionCurrency],
+  ISNULL(GJAE.postingtype , 0) AS [PostingType],
+  ISNULL(GJAE.ledgeraccount, '') AS [LedgerAccount],
+  ISNULL(GJAE.text, '') AS [Text],
+  ISNULL(GJE.journalnumber, '') AS [JournalNumber],
+  ISNULL(GJE.subledgervoucher, '') AS [SubledgerVoucher],
+  ISNULL(LJT.createdby, '') AS [CreatedBy],
+  ISNULL(LJT.createddatetime, '1900-01-01') AS [CreatedDateTime],
+  ISNULL(GJE.postinglayer, 0) AS [Postinglayer],
+  ISNULL(GJE.accountingdate, '1900-01-01') AS [AccountingDate],
+  ISNULL(LJT.journalnum , '') AS [JournalBatchNumber],
+  ISNULL(LJT.name , '') AS [JournalBatchDesc],
+  ISNULL(LJT.approver, '') AS [ApprovedBy],
+  ISNULL(LJT.journalname, '') AS [Name],
+  ISNULL(LJT.posteddatetime, '1900-01-01') AS [PostedOn],
+  ISNULL(LJT.reverseentry, 0) AS [ReversingEntry],
+  ISNULL(LJT.reversedate, '1900-01-01') AS [ReversingDate],
+  ISNULL(LJT.rejectedby, '') AS [RejectedBy],
+  ISNULL(LJT.offsetaccounttype, 0) AS [OffsetAccountType],
+  ISNULL(LJT.journaltotaloffsetbalance, 0) AS [BalanceJournal],
+  ISNULL(LJT.journaltotaldebitreportingcurrency, 0) AS [DebitTotalReportingCurrency],
+  ISNULL(LJT.journaltotalcreditreportingcurrency, 0) AS [CreditTotalReportingCurrency],
+  ISNULL(LJT.numoflines, 0) AS [Lines],
+  ISNULL(DD.PK_Date, 0) AS [FK_Date],
+  ISNULL(DMA.PK_MainAccount, 0) AS [FK_MainAccount],
+  ISNULL(DDept.PK_Department, 0) AS [FK_Department],
+  ISNULL(DBS.PK_BusinessSegment, 0) AS [FK_BusinessSegment],
+  ISNULL(DS.PK_Site, 0) AS [FK_Site],
+  ISNULL(DW.PK_Worker, 0) AS [FK_Worker],
+  ISNULL(DCC.PK_CostCenter, 0) AS [FK_CostCenter],
+  ISNULL(DCType.PK_customertype, '') AS [FK_CustomerType],
+  ISNULL(DIC.PK_Entity, 0) AS FK_Entity,
+  ISNULL(GJAE.recid, 0) AS [RecID],
+  ISNULL(GJAE.recversion, 0) AS [RecVersion],
+  ISNULL(GJAE.lhname, '') AS [LHName],
+  ISNULL(GJAE.isdelete, 0) AS [IsDelete],
+  ISNULL(replace(wf.submitted_by, ',', ' '),'') as WFSubmittedBy,  
+  ISNULL(wf.submitted_date,'') as SubmittedDate,  
+  ISNULL(replace(wf.approved_by, ',', ' '),'') as WFApprovedBy,  
+  ISNULL(wf.approved_date,'') as WFApprovedDate ,
+  UPPER(GJE.subledgervoucherdataareaid) DataAreaID,
+  GJE.DPCreatedDatetime,
+  GJE.DPModifiedDatetime
+ from [lh_finance_silver].[lh_finance].generaljournalentry GJE
+  LEFT JOIN [lh_finance_silver].[lh_finance].generaljournalaccountentry GJAE 
+   on  GJE.recid = GJAE.generaljournalentry AND GJE.lhname = GJAE.lhname
+  LEFT JOIN [lh_finance_silver].[lh_finance].dimensionattributevaluecombination DAVC
+   on  DAVC.recid = GJAE.ledgerdimension AND DAVC.lhname = GJAE.lhname
+  LEFT JOIN [lh_finance_silver].[lh_finance].ledgerentryjournal LEJ
+   on LEJ.recid = GJE.ledgerentryjournal AND LEJ.lhname = GJE.lhname
+  left join LJT_1 LJT
+   on LJT.journalnum = LEJ.journalnumber AND LJT.lhname = LEJ.lhname and GJE.subledgervoucherdataareaid = LJT.dataareaid --AND LJT.posted = 1
+  left join [lh_finance_silver].[lh_finance].[ledger] L
+   on GJE.ledger = L.recid AND GJE.lhname = L.lhname
+  left join [lh_finance_silver].[lh_finance].[ledgerchartofaccounts] LCOA
+   on L.chartofaccounts = LCOA.recid AND L.lhname = LCOA.lhname
+  left join [lh_finance_silver].[lh_finance].mainaccount MA
+   on MA.recid = DAVC.mainaccount AND MA.lhname = DAVC.lhname
+  left join (SELECT * FROM Finance.DIM_MainAccount WHERE IsDelete = 0) DMA 
+   ON DMA.MainAccountID = MA.mainaccountid AND DMA.LHName = MA.lhname /*AND MA.consolidationmainaccount = DMA.ConsolidationMainAccount*/ AND LCOA.name = DMA.ChartOfAccounts
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'CostCenter') DVCC
+   ON GJAE.ledgerdimension = DVCC.recid AND GJAE.lhname = DVCC.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_CostCenter WHERE IsSuspended = 0 AND IsDelete = 0) DCC
+   ON coalesce(DVCC.costcentervalue, DVCC.[value], '') = DCC.CostCenterValue --AND DVCC.lhname = DCC.LHName 
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Department') DVD  
+   ON GJAE.ledgerdimension = DVD.recid AND GJAE.lhname = DVD.lhname
+  LEFT JOIN Finance.DIM_Department DDept
+   ON coalesce(DVD.departmentvalue, DVD.[value], '') = DDept.DepartmentValue --AND DVD.lhname = DDept.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'CustomerType') DVCT  
+   ON GJAE.ledgerdimension = DVCT.recid AND GJAE.lhname = DVCT.lhname
+  LEFT JOIN Finance.DIM_CustomerType DCType
+   ON coalesce(DVCT.customertypevalue, DVCT.[value], '') = DCType.CustomerTypeValue
+  left join (SELECT DISTINCT * FROM DimensionValues WHERE [name] = 'Site') DVS   
+   ON GJAE.ledgerdimension = DVS.recid AND GJAE.lhname = DVS.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_Site WHERE IsSuspended = 0 AND IsDelete = 0) DS
+   ON coalesce(DVS.sitevalue, DVS.[value], '') = DS.SiteValue AND DAVC.lhname = DS.LHName AND DVS.DAVRECID = DS.Recid
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Intercompany') DVIC   
+   ON GJAE.ledgerdimension = DVIC.recid AND GJAE.lhname = DVIC.lhname
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DIC
+   ON UPPER(GJE.Subledgervoucherdataareaid) = UPPER(DIC.DataAreaID) COLLATE Latin1_General_100_CI_AS_KS_WS_SC_UTF8 --AND DVIC.lhname = DIC.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Worker') DVW  
+   ON GJAE.ledgerdimension = DVW.recid AND GJAE.lhname = DVW.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_Worker WHERE IsSuspended = 0 AND IsDelete = 0) DW
+   ON coalesce(DVW.workervalue, DVW.[value], '') = DW.WorkerValue AND DAVC.lhname = DW.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'BusinessSegment') DVBS   --SELECT * FROM DimensionValues WHERE [name] = 'CostCenter'
+   ON GJAE.ledgerdimension = DVBS.recid AND GJAE.lhname = DVBS.lhname
+  LEFT JOIN (SELECT DISTINCT * FROM [global_dw_dev].[GLD].[DIM_BusinessSegment]) DBS
+   ON UPPER(coalesce(DVBS.businesssegmentvalue, DVBS.[value], '')) = UPPER(DBS.BusinessSegment) COLLATE Latin1_General_100_CI_AS_KS_WS_SC_UTF8--AND DAVC.lhname = DCC.LHName
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD
+   ON GJE.accountingdate = DD.Fulldate
+  LEFT JOIN wf  ON wf.contextrecid = LJT.recid
+  -- LEFT JOIN #MaxProcessedDate M ON GJE.lhname = M.LHName
+ Where /*GJE.dpmodifieddatetime > ISNULL(M.MaxProcessedDate, '1900-01-01')
+  AND*/(
+      (gjae.LHName = 'LH_D365_NAADD_PRD'
+       AND UPPER(gje.subledgervoucherdataareaid) = 'CRP'
+       AND gje.accountingdate >= '2025-05-01')
+  
+   OR (gjae.LHName = 'LH_D365_NAADD_PRD'
+       AND UPPER(gje.subledgervoucherdataareaid) <> 'CRP'
+       AND gje.accountingdate >= '2025-01-01')
+  
+   OR (gjae.LHName = 'LH_AX_APAC'
+       AND gje.accountingdate >= '2025-01-01')
+   
+   -- ""Else"": everything that does NOT meet either of the two specific cases above
+   OR (gjae.LHName <> 'LH_D365_NAADD_PRD' OR gjae.LHName IS NULL)
+  )  and GJE.isdelete =0
+) 
+
+SELECT 
+    COUNT(*)
+FROM SourceData
+WHERE DPCreatedDateTime = (SELECT MAX(DPCreatedDateTime) FROM SourceData);",SELECT COUNT(*) FROM Finance.Fact_GL WHERE dpcreateddatetime = (Select max(dpcreateddatetime) from Finance.Fact_GL ),row_count_comparison,TRUE,Verifying  active record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_21,inserted records ,";WITH DimensionValues AS
+ (
+  SELECT DISTINCT DAVG.dimensionattributevaluecombination,
+    ISNULL(da.name, '') AS [name],
+    ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [value],
+    DAVG.lhname,
+    DAVC.recid,
+    DAVC.costcentervalue,
+    DAVC.departmentvalue,
+    DAVC.businesssegmentvalue,
+    DAVC.sitevalue,
+    DAVC.intercompanyvalue,
+    DAVC.projectcodevalue,
+    DAVC.workervalue,
+    DAVC.customertypevalue,
+    DAV.recid DAVRECID
+  FROM [lh_finance_silver].[lh_finance].dimensionattributevaluecombination DAVC
+    left join [lh_finance_silver].[lh_finance].[dimensionattributevaluegroupcombination] DAVG
+    ON DAVG.dimensionattributevaluecombination = DAVC.recid AND DAVG.lhname = DAVC.lhname
+    left join [lh_finance_silver].[lh_finance].[dimensionattributelevelvalue] as dalv
+    on DAVG.dimensionattributevaluegroup = dalv.dimensionattributevaluegroup AND dalv.lhname = DAVG.lhname
+    left join [lh_finance_silver].[lh_finance].[dimensionattributevalue] as dav
+    ON dalv.dimensionattributevalue = dav.recid AND dalv.lhname = dav.lhname AND dalv.partition = dav.partition
+    left join [lh_finance_silver].[lh_finance].[dimensionattribute] as da
+    on da.recid = dav.dimensionattribute AND da.partition = dav.partition and da.lhname = dav.lhname
+ ),
+ LatestStatus AS (
+     SELECT
+         wtst2.[partition],
+         wtst2.recid,
+         wtst2.contextrecid,
+         wtst2.contextcompanyid,
+   wtst2.lhname
+     FROM (
+         SELECT
+     wtst2.*,
+     ROW_NUMBER() OVER (
+         PARTITION BY wtst2.contextrecid
+         ORDER BY wtst2.recid DESC
+     ) AS rn
+         FROM [lh_finance_silver].[lh_finance].[workflowtrackingstatustable] wtst2
+     JOIN [lh_finance_silver].[lh_finance].[sqldictionary] sd ON sd.tableid = wtst2.contexttableid AND sd.fieldid = 0 AND sd.lhname = wtst2.lhname
+         WHERE sd.name = 'LedgerJournalTable'
+     ) wtst2
+     WHERE wtst2.rn = 1
+ ),
+ TrackingTop AS (
+     SELECT
+    wtst.contextrecid,
+    wtst.contextcompanyid,
+    REPLACE(ui.name, ',', ' ') AS name,
+    wtct.createddatetime,
+    wtt.trackingtype,
+    ROW_NUMBER() OVER (
+        PARTITION BY wtst.contextrecid, wtt.trackingtype
+        ORDER BY wtt.recid DESC
+    ) AS rn
+     FROM [lh_finance_silver].[lh_finance].[workflowtrackingtable] wtt
+    JOIN LatestStatus wtst ON wtst.[partition] = wtt.[partition] AND wtst.recid = wtt.workflowtrackingstatustable AND wtt.lhname = wtst.lhname
+    JOIN [lh_finance_silver].[lh_finance].[workflowtrackingcommenttable] wtct ON wtct.[partition] = wtt.[partition] AND wtct.workflowtrackingtable = wtt.recid AND wtt.lhname = wtct.lhname
+    JOIN [lh_finance_silver].[lh_finance].[userinfo] ui ON ui.[partition] = wtt.[partition] AND ui.id = wtt.[user_] AND ui.lhname = wtt.lhname
+     WHERE wtt.trackingtype IN (4, 23)
+ ),
+ wf AS (
+  SELECT
+      contextrecid,
+      MIN(CASE WHEN trackingtype = 23 THEN name             END) AS submitted_by,
+      MIN(CASE WHEN trackingtype = 23 THEN createddatetime  END) AS submitted_date,
+      MIN(CASE WHEN trackingtype = 4  THEN name             END) AS approved_by,
+      MIN(CASE WHEN trackingtype = 4  THEN createddatetime  END) AS approved_date
+  FROM TrackingTop
+  WHERE rn = 1
+  GROUP BY contextrecid
+ ),
+ LJT_1 AS (
+  SELECT *
+  FROM (
+   SELECT
+     ljt.*,
+     ROW_NUMBER() OVER (
+     PARTITION BY ljt.lhname, ljt.dataareaid, ljt.journalnum
+     ORDER BY
+      COALESCE(ljt.dpmodifieddatetime, ljt.posteddatetime, ljt.createddatetime) DESC,
+      ljt.recid DESC
+     ) rn
+   FROM lh_finance_silver.lh_finance.ledgerjournaltable ljt
+   WHERE ljt.posted = 1
+  ) x
+  WHERE rn = 1
+ )
+select recid,recversion,isdelete,dpcreateddatetime,dpmodifieddatetime,lhname from ( 
+ SELECT 
+  NULL PK_Fact_GL,
+  ISNULL(GJAE.accountingcurrencyamount, 0) AS [Amount],
+  ISNULL(GJAE.reportingcurrencyamount, 0) AS [AmountInReportingCurrency],
+  ISNULL(GJAE.transactioncurrencyamount, 0) AS [AmountInTransactionCurrency],
+  ISNULL(GJAE.postingtype , 0) AS [PostingType],
+  ISNULL(GJAE.ledgeraccount, '') AS [LedgerAccount],
+  ISNULL(GJAE.text, '') AS [Text],
+  ISNULL(GJE.journalnumber, '') AS [JournalNumber],
+  ISNULL(GJE.subledgervoucher, '') AS [SubledgerVoucher],
+  ISNULL(LJT.createdby, '') AS [CreatedBy],
+  ISNULL(LJT.createddatetime, '1900-01-01') AS [CreatedDateTime],
+  ISNULL(GJE.postinglayer, 0) AS [Postinglayer],
+  ISNULL(GJE.accountingdate, '1900-01-01') AS [AccountingDate],
+  ISNULL(LJT.journalnum , '') AS [JournalBatchNumber],
+  ISNULL(LJT.name , '') AS [JournalBatchDesc],
+  ISNULL(LJT.approver, '') AS [ApprovedBy],
+  ISNULL(LJT.journalname, '') AS [Name],
+  ISNULL(LJT.posteddatetime, '1900-01-01') AS [PostedOn],
+  ISNULL(LJT.reverseentry, 0) AS [ReversingEntry],
+  ISNULL(LJT.reversedate, '1900-01-01') AS [ReversingDate],
+  ISNULL(LJT.rejectedby, '') AS [RejectedBy],
+  ISNULL(LJT.offsetaccounttype, 0) AS [OffsetAccountType],
+  ISNULL(LJT.journaltotaloffsetbalance, 0) AS [BalanceJournal],
+  ISNULL(LJT.journaltotaldebitreportingcurrency, 0) AS [DebitTotalReportingCurrency],
+  ISNULL(LJT.journaltotalcreditreportingcurrency, 0) AS [CreditTotalReportingCurrency],
+  ISNULL(LJT.numoflines, 0) AS [Lines],
+  ISNULL(DD.PK_Date, 0) AS [FK_Date],
+  ISNULL(DMA.PK_MainAccount, 0) AS [FK_MainAccount],
+  ISNULL(DDept.PK_Department, 0) AS [FK_Department],
+  ISNULL(DBS.PK_BusinessSegment, 0) AS [FK_BusinessSegment],
+  ISNULL(DS.PK_Site, 0) AS [FK_Site],
+  ISNULL(DW.PK_Worker, 0) AS [FK_Worker],
+  ISNULL(DCC.PK_CostCenter, 0) AS [FK_CostCenter],
+  ISNULL(DCType.PK_customertype, '') AS [FK_CustomerType],
+  ISNULL(DIC.PK_Entity, 0) AS FK_Entity,
+  ISNULL(GJAE.recid, 0) AS [RecID],
+  ISNULL(GJAE.recversion, 0) AS [RecVersion],
+  ISNULL(GJAE.lhname, '') AS [LHName],
+  ISNULL(GJAE.isdelete, 0) AS [IsDelete],
+  ISNULL(replace(wf.submitted_by, ',', ' '),'') as WFSubmittedBy,  
+  ISNULL(wf.submitted_date,'') as SubmittedDate,  
+  ISNULL(replace(wf.approved_by, ',', ' '),'') as WFApprovedBy,  
+  ISNULL(wf.approved_date,'') as WFApprovedDate ,
+  UPPER(GJE.subledgervoucherdataareaid) DataAreaID,
+  GJE.DPCreatedDatetime,
+  GJE.DPModifiedDatetime
+ from [lh_finance_silver].[lh_finance].generaljournalentry GJE
+  LEFT JOIN [lh_finance_silver].[lh_finance].generaljournalaccountentry GJAE 
+   on  GJE.recid = GJAE.generaljournalentry AND GJE.lhname = GJAE.lhname
+  LEFT JOIN [lh_finance_silver].[lh_finance].dimensionattributevaluecombination DAVC
+   on  DAVC.recid = GJAE.ledgerdimension AND DAVC.lhname = GJAE.lhname
+  LEFT JOIN [lh_finance_silver].[lh_finance].ledgerentryjournal LEJ
+   on LEJ.recid = GJE.ledgerentryjournal AND LEJ.lhname = GJE.lhname
+  left join LJT_1 LJT
+   on LJT.journalnum = LEJ.journalnumber AND LJT.lhname = LEJ.lhname and GJE.subledgervoucherdataareaid = LJT.dataareaid --AND LJT.posted = 1
+  left join [lh_finance_silver].[lh_finance].[ledger] L
+   on GJE.ledger = L.recid AND GJE.lhname = L.lhname
+  left join [lh_finance_silver].[lh_finance].[ledgerchartofaccounts] LCOA
+   on L.chartofaccounts = LCOA.recid AND L.lhname = LCOA.lhname
+  left join [lh_finance_silver].[lh_finance].mainaccount MA
+   on MA.recid = DAVC.mainaccount AND MA.lhname = DAVC.lhname
+  left join (SELECT * FROM Finance.DIM_MainAccount WHERE IsDelete = 0) DMA 
+   ON DMA.MainAccountID = MA.mainaccountid AND DMA.LHName = MA.lhname /*AND MA.consolidationmainaccount = DMA.ConsolidationMainAccount*/ AND LCOA.name = DMA.ChartOfAccounts
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'CostCenter') DVCC
+   ON GJAE.ledgerdimension = DVCC.recid AND GJAE.lhname = DVCC.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_CostCenter WHERE IsSuspended = 0 AND IsDelete = 0) DCC
+   ON coalesce(DVCC.costcentervalue, DVCC.[value], '') = DCC.CostCenterValue --AND DVCC.lhname = DCC.LHName 
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Department') DVD  
+   ON GJAE.ledgerdimension = DVD.recid AND GJAE.lhname = DVD.lhname
+  LEFT JOIN Finance.DIM_Department DDept
+   ON coalesce(DVD.departmentvalue, DVD.[value], '') = DDept.DepartmentValue --AND DVD.lhname = DDept.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'CustomerType') DVCT  
+   ON GJAE.ledgerdimension = DVCT.recid AND GJAE.lhname = DVCT.lhname
+  LEFT JOIN Finance.DIM_CustomerType DCType
+   ON coalesce(DVCT.customertypevalue, DVCT.[value], '') = DCType.CustomerTypeValue
+  left join (SELECT DISTINCT * FROM DimensionValues WHERE [name] = 'Site') DVS   
+   ON GJAE.ledgerdimension = DVS.recid AND GJAE.lhname = DVS.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_Site WHERE IsSuspended = 0 AND IsDelete = 0) DS
+   ON coalesce(DVS.sitevalue, DVS.[value], '') = DS.SiteValue AND DAVC.lhname = DS.LHName AND DVS.DAVRECID = DS.Recid
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Intercompany') DVIC   
+   ON GJAE.ledgerdimension = DVIC.recid AND GJAE.lhname = DVIC.lhname
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DIC
+   ON UPPER(GJE.Subledgervoucherdataareaid) = UPPER(DIC.DataAreaID) COLLATE Latin1_General_100_CI_AS_KS_WS_SC_UTF8 --AND DVIC.lhname = DIC.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'Worker') DVW  
+   ON GJAE.ledgerdimension = DVW.recid AND GJAE.lhname = DVW.lhname
+  LEFT JOIN (SELECT * FROM Finance.DIM_Worker WHERE IsSuspended = 0 AND IsDelete = 0) DW
+   ON coalesce(DVW.workervalue, DVW.[value], '') = DW.WorkerValue AND DAVC.lhname = DW.LHName
+  left join (SELECT * FROM DimensionValues WHERE [name] = 'BusinessSegment') DVBS   --SELECT * FROM DimensionValues WHERE [name] = 'CostCenter'
+   ON GJAE.ledgerdimension = DVBS.recid AND GJAE.lhname = DVBS.lhname
+  LEFT JOIN (SELECT DISTINCT * FROM [global_dw_dev].[GLD].[DIM_BusinessSegment]) DBS
+   ON UPPER(coalesce(DVBS.businesssegmentvalue, DVBS.[value], '')) = UPPER(DBS.BusinessSegment) COLLATE Latin1_General_100_CI_AS_KS_WS_SC_UTF8--AND DAVC.lhname = DCC.LHName
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD
+   ON GJE.accountingdate = DD.Fulldate
+  LEFT JOIN wf  ON wf.contextrecid = LJT.recid
+  -- LEFT JOIN #MaxProcessedDate M ON GJE.lhname = M.LHName
+ Where /*GJE.dpmodifieddatetime > ISNULL(M.MaxProcessedDate, '1900-01-01')
+  AND*/(
+      (gjae.LHName = 'LH_D365_NAADD_PRD'
+       AND UPPER(gje.subledgervoucherdataareaid) = 'CRP'
+       AND gje.accountingdate >= '2025-05-01')
+  
+   OR (gjae.LHName = 'LH_D365_NAADD_PRD'
+       AND UPPER(gje.subledgervoucherdataareaid) <> 'CRP'
+       AND gje.accountingdate >= '2025-01-01')
+  
+   OR (gjae.LHName = 'LH_AX_APAC'
+       AND gje.accountingdate >= '2025-01-01')
+   
+   -- ""Else"": everything that does NOT meet either of the two specific cases above
+   OR (gjae.LHName <> 'LH_D365_NAADD_PRD' OR gjae.LHName IS NULL)
+  )  and GJE.isdelete =0
+) as a where recid in ({recid_list}) 
+","select  TOP 1000  recid ,recversion,dpcreateddatetime,dpmodifieddatetime,lhname FROM Finance.Fact_GL
+order by 4 desc",insert_record_validation_group,FALSE,Verifying inserted record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_22,verify deleted records,,"select top 1 percent recid ,recversion,dpcreateddatetime,dpmodifieddatetime FROM Finance.Fact_GL  where isdelete =1
+order by 4 desc",target_zero_count_validation,FALSE,Validate no deleted record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_23,no nulls,,"select * FROM Finance.Fact_GL
+where   recid is null or isdelete is null or dpcreateddatetime is null or dpmodifieddatetime is null or FK_Entity is null or FK_customertype is null   
+or FK_CostCenter is null or FK_Worker is null or FK_Site is null   or FK_BusinessSegment is null or FK_Department is null  or FK_MainAccount is null   or FK_Date is null  ",target_zero_count_validation,FALSE,Verify No null records count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_24,Posted vs Approved Validation,,SELECT * FROM [Finance].[Fact_GL] WHERE PostedOn IS NOT NULL AND ApprovedBy IS NULL,target_zero_count_validation,TRUE,Verify no null records for postedon,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_25,Ledger Account Null Check,,SELECT * FROM [Finance].[Fact_GL] WHERE LedgerAccount IS NULL,target_zero_count_validation,FALSE,Verify no null records for ledgeraccount,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_26,Transaction & Reporting Currency Consistency,,SELECT * FROM [Finance].[Fact_GL] WHERE AmountInReportingCurrency IS NULL or AmountInTransactionCurrency IS NULL,target_zero_count_validation,TRUE,"Verify no null recirds for AmountInReportingCurrency,AmountInTransactionCurrency",major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_27,active records count,";WITH consolidatedviews AS
+ (
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_APAC_PRD] ga WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_APACEAST_PRD] gap WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_EMEA_PRD] gem WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_LATAM_PRD] glat WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_MSFD_PRD] gms WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_USFD_PRD] gus WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_NAADD_PRD] gna WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_AX_BRAZIL] gbr WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+ )
+select count(*) from (
+   SELECT
+   [Amount]
+   ,[AmountinReportingCurrency]
+   ,[AmountinTransactionCurrency]
+   ,[LineAmountMST]
+   ,[SalesPrice]
+   ,[SumLineDisc]
+   ,[DebitTotalReportingCurrency]
+   ,[CreditTotalReportingCurrency]
+   ,[AmountAcct]
+   ,[AmountTrans]
+   ,[ExchRate]
+   ,[BalanceJournal]
+   ,[InventQty]
+   ,[Qty]
+   ,[PostingType]
+   ,[PostingTypeName]
+   ,[PostingLayer]
+   ,[AccountingDate]
+   ,[CreatedDateandTime]
+   ,[PostedOn]
+   ,[ReversingEntry]
+   ,[ReversingDate]
+   ,[InvoiceID]
+   ,[SalesID]
+   ,[OrderAccount]
+   ,[ItemID]
+   ,[JournalNumber]
+   ,[SubLedgerVoucher]
+   ,[JournalBatchNumber]
+   ,[JournalBatchDesc]
+   ,[LedgerAccount]
+   ,[Text]
+   ,[OffsetAccountType]
+   ,[CurrencyCode]
+   ,[SalesUnit]
+   ,[COAType]
+   ,[COAGroup]
+   ,[ApprovedBy]
+   ,[RejectedBy]
+   ,[CreatedBy]
+   ,[Name]
+   ,[Lines]
+   ,[FK_Department]
+   ,[FK_BusinessSegment]
+   ,[FK_Site]
+   ,[FK_Worker]
+   ,[FK_CostCenter]
+   ,[FK_CustomerType]
+   ,[FK_ProjectCode]
+   ,[FK_MainAccount]
+   ,[FK_Entity]
+   ,[DataAreaID]
+   ,[YearMonth]
+   ,[LHName]
+   ,[RecID]
+   ,[Recversion]
+   ,[DPCreatedDatetime]
+   ,[DPModifiedDatetime]
+   ,[IsDelete]
+     From consolidatedviews 
+     where Isdelete = 0 ) as a ",SELECT COUNT(*) FROM enterprise_dwh.Finance.Fact_GLWithRevenueBreakdown WHERE IsDelete <> 1;,row_count_comparison,FALSE,Validate active record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_28,column value validation reference,";WITH consolidatedviews AS
+ (
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_APAC_PRD] ga WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_APACEAST_PRD] gap WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_EMEA_PRD] gem WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_LATAM_PRD] glat WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_MSFD_PRD] gms WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_USFD_PRD] gus WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_NAADD_PRD] gna WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_AX_BRAZIL] gbr WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+ )
+select LHName , count(*) as Rowcounts from ( 
+   SELECT
+   [Amount]
+   ,[AmountinReportingCurrency]
+   ,[AmountinTransactionCurrency]
+   ,[LineAmountMST]
+   ,[SalesPrice]
+   ,[SumLineDisc]
+   ,[DebitTotalReportingCurrency]
+   ,[CreditTotalReportingCurrency]
+   ,[AmountAcct]
+   ,[AmountTrans]
+   ,[ExchRate]
+   ,[BalanceJournal]
+   ,[InventQty]
+   ,[Qty]
+   ,[PostingType]
+   ,[PostingTypeName]
+   ,[PostingLayer]
+   ,[AccountingDate]
+   ,[CreatedDateandTime]
+   ,[PostedOn]
+   ,[ReversingEntry]
+   ,[ReversingDate]
+   ,[InvoiceID]
+   ,[SalesID]
+   ,[OrderAccount]
+   ,[ItemID]
+   ,[JournalNumber]
+   ,[SubLedgerVoucher]
+   ,[JournalBatchNumber]
+   ,[JournalBatchDesc]
+   ,[LedgerAccount]
+   ,[Text]
+   ,[OffsetAccountType]
+   ,[CurrencyCode]
+   ,[SalesUnit]
+   ,[COAType]
+   ,[COAGroup]
+   ,[ApprovedBy]
+   ,[RejectedBy]
+   ,[CreatedBy]
+   ,[Name]
+   ,[Lines]
+   ,[FK_Department]
+   ,[FK_BusinessSegment]
+   ,[FK_Site]
+   ,[FK_Worker]
+   ,[FK_CostCenter]
+   ,[FK_CustomerType]
+   ,[FK_ProjectCode]
+   ,[FK_MainAccount]
+   ,[FK_Entity]
+   ,[DataAreaID]
+   ,[YearMonth]
+   ,[LHName]
+   ,[RecID]
+   ,[Recversion]
+   ,[DPCreatedDatetime]
+   ,[DPModifiedDatetime]
+   ,[IsDelete]
+     From consolidatedviews
+     where Isdelete = 0 ) as a  group by lhname order by 1
+","SELECT LHName, COUNT(*) AS Rowcounts FROM Finance.Fact_GLWithRevenueBreakdown GROUP BY LHName order by 1;",column_value_validation,FALSE,Validate active record count between Silver and Gold,major,,,,,,,,,,,"LHName, Rowcounts",,,,,,,,,,,,Gold,Gold
+test_29,deleted records,,SELECT * FROM Finance.Fact_GLWithRevenueBreakdown WHERE IsDelete=1;,target_zero_count_validation,FALSE,Validate active record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_30,new records from source exist in destination,";WITH consolidatedviews AS
+ (
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_APAC_PRD] ga WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_APACEAST_PRD] gap WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_EMEA_PRD] gem WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_LATAM_PRD] glat WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_MSFD_PRD] gms WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_USFD_PRD] gus WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_NAADD_PRD] gna WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_AX_BRAZIL] gbr WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+ ),
+
+
+SourceData AS (
+   SELECT
+   [Amount]
+   ,[AmountinReportingCurrency]
+   ,[AmountinTransactionCurrency]
+   ,[LineAmountMST]
+   ,[SalesPrice]
+   ,[SumLineDisc]
+   ,[DebitTotalReportingCurrency]
+   ,[CreditTotalReportingCurrency]
+   ,[AmountAcct]
+   ,[AmountTrans]
+   ,[ExchRate]
+   ,[BalanceJournal]
+   ,[InventQty]
+   ,[Qty]
+   ,[PostingType]
+   ,[PostingTypeName]
+   ,[PostingLayer]
+   ,[AccountingDate]
+   ,[CreatedDateandTime]
+   ,[PostedOn]
+   ,[ReversingEntry]
+   ,[ReversingDate]
+   ,[InvoiceID]
+   ,[SalesID]
+   ,[OrderAccount]
+   ,[ItemID]
+   ,[JournalNumber]
+   ,[SubLedgerVoucher]
+   ,[JournalBatchNumber]
+   ,[JournalBatchDesc]
+   ,[LedgerAccount]
+   ,[Text]
+   ,[OffsetAccountType]
+   ,[CurrencyCode]
+   ,[SalesUnit]
+   ,[COAType]
+   ,[COAGroup]
+   ,[ApprovedBy]
+   ,[RejectedBy]
+   ,[CreatedBy]
+   ,[Name]
+   ,[Lines]
+   ,[FK_Department]
+   ,[FK_BusinessSegment]
+   ,[FK_Site]
+   ,[FK_Worker]
+   ,[FK_CostCenter]
+   ,[FK_CustomerType]
+   ,[FK_ProjectCode]
+   ,[FK_MainAccount]
+   ,[FK_Entity]
+   ,[DataAreaID]
+   ,[YearMonth]
+   ,[LHName]
+   ,[RecID]
+   ,[Recversion]
+   ,[DPCreatedDatetime]
+   ,[DPModifiedDatetime]
+   ,[IsDelete]
+     From consolidatedviews where Isdelete = 0 ) 
+
+SELECT 
+    COUNT(*)
+FROM SourceData
+WHERE DPCreatedDateTime = (SELECT MAX(DPCreatedDateTime) FROM SourceData);
+","SELECT COUNT(*) FROM Finance.Fact_GLWithRevenueBreakdown  WHERE dpcreateddatetime = (Select max(dpcreateddatetime) from Finance.Fact_GLWithRevenueBreakdown )
+",row_count_comparison,FALSE,Verifying  active record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_31,inserted records ,";WITH consolidatedviews AS
+ (
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_APAC_PRD] ga WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_APACEAST_PRD] gap WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_EMEA_PRD] gem WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_LATAM_PRD] glat WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_MSFD_PRD] gms WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_USFD_PRD] gus WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_D365_NAADD_PRD] gna WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+  UNION ALL
+  SELECT * FROM [Finance].[VW_GL_RevenueBreakdown_LH_AX_BRAZIL] gbr WHERE dpmodifieddatetime > '1900-01-01 00:00:00'
+ )
+select recid,recversion,isdelete,dpcreateddatetime,dpmodifieddatetime,lhname from ( 
+   SELECT
+   [Amount]
+   ,[AmountinReportingCurrency]
+   ,[AmountinTransactionCurrency]
+   ,[LineAmountMST]
+   ,[SalesPrice]
+   ,[SumLineDisc]
+   ,[DebitTotalReportingCurrency]
+   ,[CreditTotalReportingCurrency]
+   ,[AmountAcct]
+   ,[AmountTrans]
+   ,[ExchRate]
+   ,[BalanceJournal]
+   ,[InventQty]
+   ,[Qty]
+   ,[PostingType]
+   ,[PostingTypeName]
+   ,[PostingLayer]
+   ,[AccountingDate]
+   ,[CreatedDateandTime]
+   ,[PostedOn]
+   ,[ReversingEntry]
+   ,[ReversingDate]
+   ,[InvoiceID]
+   ,[SalesID]
+   ,[OrderAccount]
+   ,[ItemID]
+   ,[JournalNumber]
+   ,[SubLedgerVoucher]
+   ,[JournalBatchNumber]
+   ,[JournalBatchDesc]
+   ,[LedgerAccount]
+   ,[Text]
+   ,[OffsetAccountType]
+   ,[CurrencyCode]
+   ,[SalesUnit]
+   ,[COAType]
+   ,[COAGroup]
+   ,[ApprovedBy]
+   ,[RejectedBy]
+   ,[CreatedBy]
+   ,[Name]
+   ,[Lines]
+   ,[FK_Department]
+   ,[FK_BusinessSegment]
+   ,[FK_Site]
+   ,[FK_Worker]
+   ,[FK_CostCenter]
+   ,[FK_CustomerType]
+   ,[FK_ProjectCode]
+   ,[FK_MainAccount]
+   ,[FK_Entity]
+   ,[DataAreaID]
+   ,[YearMonth]
+   ,[LHName]
+   ,[RecID]
+   ,[Recversion]
+   ,[DPCreatedDatetime]
+   ,[DPModifiedDatetime]
+   ,[IsDelete]
+     From consolidatedviews 
+     where Isdelete = 0 ) as a where recid in ({recid_list}) ","select  TOP 1000  recid ,recversion,dpcreateddatetime,dpmodifieddatetime,lhname FROM Finance.Fact_GLWithRevenueBreakdown
+order by 4 desc",insert_record_validation_group,FALSE,Verifying inserted record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_32,verify deleted records,,"select top 1 percent recid ,recversion,dpcreateddatetime,dpmodifieddatetime FROM Finance.Fact_GLWithRevenueBreakdown  where isdelete =1
+order by 4 desc",target_zero_count_validation,FALSE,Validate no deleted record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_33,no nulls,,"select * FROM Finance.Fact_GLWithRevenueBreakdown
+where   recid is null or isdelete is null or dpcreateddatetime is null or dpmodifieddatetime is null",target_zero_count_validation,FALSE,Verify No null records count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_34,Posted vs Approved Validation,,SELECT * FROM [Finance].[Fact_GLWithRevenueBreakdown] WHERE PostedOn IS NOT NULL AND ApprovedBy IS NULL,target_zero_count_validation,TRUE,Verify no null records for postedon,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_35,Ledger Account Null Check,,SELECT * FROM [Finance].[Fact_GLWithRevenueBreakdown] WHERE LedgerAccount IS NULL,target_zero_count_validation,FALSE,Verify no null records for ledgeraccount,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
+test_36,Transaction & Reporting Currency Consistency,,SELECT * FROM [Finance].[Fact_GLWithRevenueBreakdown] WHERE AmountInReportingCurrency IS NULL or AmountInTransactionCurrency IS NULL,target_zero_count_validation,TRUE,"Verify no null recirds for AmountInReportingCurrency,AmountInTransactionCurrency",major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold

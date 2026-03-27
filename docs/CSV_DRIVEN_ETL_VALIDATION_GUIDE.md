@@ -27,6 +27,8 @@
 | **enabled** | TRUE/FALSE to run test | TRUE |
 | **description** | What the test validates | Validate counts match |
 | **severity** | critical/high/normal/low | critical |
+| **source_layer** | Optional source endpoint layer override | BRONZE / SILVER / GOLD |
+| **target_layer** | Optional target endpoint layer override | BRONZE / SILVER / GOLD |
 
 ---
 
@@ -62,6 +64,23 @@ Compares aggregate values (SUM, AVG, etc.)
 TEST_07,Sum Check,SELECT SUM(amount) FROM source,SELECT SUM(amount) FROM target,aggregate_validations,TRUE,Sum validation,critical
 ```
 
+### **6. column_value_validation**
+Compares selected column values row-by-row between source and target results.
+
+If the query result has only one column, the framework validates that column automatically.
+
+If the query result has multiple columns, set `compare_columns` in the CSV.
+
+```csv
+TEST_08,Column Value Check,SELECT lakehouse,value FROM source,SELECT lakehouse,value FROM target,column_value_validation,TRUE,Validate selected columns,high
+```
+
+Example with `compare_columns`:
+```csv
+test_id,test_name,source_query,target_query,validation_type,enabled,description,severity,compare_columns
+TEST_08,Column Value Check,SELECT lakehouse,value FROM source,SELECT lakehouse,value FROM target,column_value_validation,TRUE,Validate selected columns,high,"lakehouse,value"
+```
+
 ---
 
 ## 🎯 Using Variables in Queries
@@ -85,6 +104,31 @@ Rules:
 - If only `{table_name}` is present, execution continues once per table.
 - If only `{Dimension}` is present, execution continues once per dimension.
 - Lakehouse expansion still runs independently before placeholder execution.
+
+### **Same-Layer Validation**
+
+You can override the default runner layers per CSV row using:
+- `source_layer`
+- `target_layer`
+
+This is the recommended approach. In most cases, you should set the layer in these two columns and keep `source_lakehouse` / `target_lakehouse` only for lakehouse names.
+
+Examples:
+- Bronze to Bronze: `source_layer=BRONZE`, `target_layer=BRONZE`
+- Silver to Silver: `source_layer=SILVER`, `target_layer=SILVER`
+- Gold to Gold: `source_layer=GOLD`, `target_layer=GOLD`
+
+This works in both CSV files as long as the required lakehouses/tables are reachable from the selected endpoint layer.
+
+You can also type the layer directly inside the existing lakehouse fields if needed:
+- `BRONZE[LH_A]`
+- `SILVER[LH_Finance]`
+- `GOLD[enterprise_dwh]`
+
+Rules:
+- `source_layer` / `target_layer` win if both styles are present
+- typed lakehouse syntax is used only when explicit layer columns are blank
+- multiple typed lakehouses are matched positionally
 
 ### **Problem:** You want to get recids from Bronze and check if they exist in Silver
 
