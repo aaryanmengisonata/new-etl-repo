@@ -291,11 +291,23 @@ class BaseCSVDrivenETLValidation:
         """
         source_query = cls._csv_value(test_case, 'source_query') or cls._csv_value(test_case, 'source')
         target_query = cls._csv_value(test_case, 'target_query') or cls._csv_value(test_case, 'target')
+        validation_type = cls._csv_value(test_case, 'validation_type')
         if target_query and not source_query and cls._is_target_zero_validation(
-            cls._csv_value(test_case, 'validation_type')
+            validation_type
         ):
             # Target-only validation: keep source harmless and empty-result.
             return {'source_query': 'SELECT TOP 0 1 AS dummy', 'target_query': target_query}
+        if cls._is_data_display_validation(validation_type):
+            if source_query and not target_query:
+                return {
+                    'source_query': source_query,
+                    'target_query': 'SELECT TOP 0 1 AS dummy WHERE 1 = 0',
+                }
+            if target_query and not source_query:
+                return {
+                    'source_query': 'SELECT TOP 0 1 AS dummy WHERE 1 = 0',
+                    'target_query': target_query,
+                }
         if source_query and target_query:
             return {'source_query': source_query, 'target_query': target_query}
 
@@ -486,6 +498,31 @@ class BaseCSVDrivenETLValidation:
             'target_zero_count_validation',
             'target_zero_records_validation',
             'target_should_be_zero',
+        }
+
+    @staticmethod
+    def _is_both_zero_validation(validation_type: str) -> bool:
+        normalized = str(validation_type).strip().lower()
+        return normalized in {
+            'both_zero_count_validation',
+            'source_target_zero_count_validation',
+            'source_and_target_should_be_zero',
+        }
+
+    @staticmethod
+    def _is_data_display_validation(validation_type: str) -> bool:
+        normalized = str(validation_type).strip().lower()
+        compact = normalized.replace(' ', '_')
+        return normalized in {
+            'data_display',
+            'data_display_validation',
+            'display_data',
+            'data disaply',
+        } or compact in {
+            'data_display',
+            'data_display_validation',
+            'display_data',
+            'data_disaply',
         }
 
     @staticmethod
@@ -1158,6 +1195,65 @@ class BaseCSVDrivenETLValidation:
                         f"Sample records: {sample_rows}"
                     )
                 }
+
+            elif self._is_both_zero_validation(normalized_validation):
+                source_count = self._count_for_dashboard(source_data)
+                target_count = self._count_for_dashboard(target_data)
+
+                if source_count == 0 and target_count == 0:
+                    return {
+                        'status': 'PASSED',
+                        'source_count': 0,
+                        'target_count': 0,
+                        'matched_count': 0,
+                        'message': 'Source and target queries both returned 0 records as expected'
+                    }
+
+                source_rows = list(source_data or [])[:10]
+                target_rows = list(target_data or [])[:10]
+                return {
+                    'status': 'FAILED',
+                    'source_count': source_count,
+                    'target_count': target_count,
+                    'failed_count': max(source_count, target_count),
+                    'failed_records': {
+                        'source_sample': source_rows,
+                        'target_sample': target_rows,
+                    },
+                    'message': (
+                        f'Source and target must both be 0. '
+                        f'Got source={source_count}, target={target_count}. '
+                        f'Source sample: {source_rows}; Target sample: {target_rows}'
+                    )
+                }
+
+            elif self._is_data_display_validation(normalized_validation):
+                source_rows = list(source_data or [])
+                target_rows = list(target_data or [])
+                source_count = len(source_rows)
+                target_count = len(target_rows)
+
+                if source_count and target_count:
+                    message = (
+                        f'Displayed source ({source_count} row(s)) and '
+                        f'target ({target_count} row(s)) data'
+                    )
+                elif source_count:
+                    message = f'Displayed source data with {source_count} row(s)'
+                elif target_count:
+                    message = f'Displayed target data with {target_count} row(s)'
+                else:
+                    message = 'No data returned from source or target query, but display validation is marked as pass'
+
+                return {
+                    'status': 'PASSED',
+                    'source_count': source_count,
+                    'target_count': target_count,
+                    'matched_count': source_count + target_count,
+                    'message': message,
+                    'source_sample': source_rows[:10],
+                    'target_sample': target_rows[:10],
+                }
             
             elif normalized_validation in ('insert_record_validation', 'update_record_validation', 'delete_record_validation'):
                 source_recids = set(row['recid'] for row in source_data)
@@ -1482,6 +1578,10 @@ Message: {result.get('message')}"""
                 result_summary += f"\nSource RecID Count: {result['source_recid_count']}"
             if 'target_recid_count' in result:
                 result_summary += f"\nTarget RecID Count: {result['target_recid_count']}"
+            if 'source_sample' in result:
+                result_summary += f"\nSource Sample: {result['source_sample']}"
+            if 'target_sample' in result:
+                result_summary += f"\nTarget Sample: {result['target_sample']}"
             if result.get('table_results'):
                 result_summary += "\n\nPer Table Results:"
                 for table_result in result['table_results']:

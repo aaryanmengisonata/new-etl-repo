@@ -77,6 +77,16 @@ reports/
 allure-results/
 allure-report/
 
+# Fabric notebook local/runtime artifacts
+Fabric_ETL/Notebook_files/
+Fabric_ETL/Notebook_files/.stubs/
+Fabric_ETL/Notebook_files/.vfscache/
+Fabric_ETL/Notebook_files/.vfsmeta/
+Fabric_ETL/Notebook_files/.work-folder-info
+Fabric_ETL/Notebook_files/*-*-*-*-*/
+Fabric_ETL/Notebook_files/FABRIC_FRAMEWORK.zip
+Fabric_ETL/**/.~lock*
+
 
 # OS
 .DS_Store
@@ -97,6 +107,8 @@ tmp/
 *.bak
 *.backup
 *~
+data/*_0.csv
+data/*tests2.csv
 
 # Node.js (if using any JS tools)
 node_modules/

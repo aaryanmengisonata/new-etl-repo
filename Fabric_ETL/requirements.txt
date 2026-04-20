@@ -1,0 +1,59 @@
+# ETL Testing Framework Requirements
+# Core Testing Framework
+pytest==9.0.2
+pytest-html==4.1.1
+pytest-metadata==3.1.1
+
+# Allure Reporting
+allure-pytest==2.15.3
+allure-python-commons==2.15.3
+
+# HTTP Requests & API Testing
+requests==2.32.5
+urllib3==2.6.3
+certifi==2026.1.4
+
+# Database Connectivity
+psycopg2-binary==2.9.11
+snowflake-connector-python>=3.0.0
+pyodbc==5.0.1
+
+# Azure & Fabric Authentication
+azure-identity==1.19.0
+msal==1.31.1
+
+# Data Processing & CSV Handling
+pandas>=1.5.0
+numpy>=1.24.0
+
+# Data Validation & Schema
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+referencing==0.37.0
+rpds-py==0.30.0
+
+# Configuration Management
+python-dotenv==1.2.1
+PyYAML==6.0.3
+
+# Core Dependencies
+attrs==25.4.0
+charset-normalizer==3.4.4
+colorama==0.4.6
+idna==3.11
+iniconfig==2.3.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+packaging==25.0
+pluggy==1.6.0
+Pygments==2.19.2
+
+# Optional: Additional Database Drivers
+# mysql-connector-python==8.0.33
+
+# Optional: Performance Testing
+# pytest-benchmark==4.0.0
+# locust==2.17.0
+
+# Optional: Data Generation
+# faker==19.6.2

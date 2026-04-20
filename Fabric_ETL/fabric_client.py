@@ -1,9 +1,10 @@
 """Microsoft Fabric Lakehouse Client for ETL Testing"""
 
+import os
 import pyodbc
 import struct
 import configparser
-from typing import Optional
+from pathlib import Path
 from azure.identity import ClientSecretCredential, InteractiveBrowserCredential
 
 try:
@@ -15,17 +16,42 @@ except ImportError:  # Older azure-identity versions may not expose persistent c
 class FabricClient:
     _credential_cache = {}
 
-    def __init__(self, layer="BRONZE"):
+    def __init__(self, layer="BRONZE", config_path=None):
         self.config = configparser.ConfigParser()
-        self.config.read("config/master.properties")
+        resolved_config_path = self._resolve_config_path(config_path)
+        self.config.read(resolved_config_path)
         self.layer = f"FABRIC_{layer.upper()}"
         self.connection = None
-        self.connection_strategy = self.config.get(
-            "FABRIC",
-            "FABRIC_CONNECTION_STRATEGY",
-            fallback="reuse",
-        ).strip().lower()
-        self.retry_attempts = 1
+
+    @staticmethod
+    def _resolve_config_path(config_path=None):
+        """Resolve config path for local runs and Fabric notebooks."""
+        candidates = []
+        if config_path:
+            candidates.append(Path(config_path))
+
+        env_config = os.getenv("ETL_CONFIG_PATH")
+        if env_config:
+            candidates.append(Path(env_config))
+
+        cwd = Path.cwd()
+        module_dir = Path(__file__).resolve().parent
+        candidates.extend(
+            [
+                cwd / "master.properties",
+                cwd / "config" / "master.properties",
+                module_dir / "master.properties",
+                module_dir / "config" / "master.properties",
+            ]
+        )
+
+        for candidate in candidates:
+            if candidate.exists():
+                return str(candidate)
+
+        raise FileNotFoundError(
+            "master.properties not found. Set ETL_CONFIG_PATH or place master.properties in project root."
+        )
 
     @classmethod
     def _get_credential(cls, auth_method: str, tenant_id: str, client_id: str = "", client_secret: str = ""):
@@ -52,6 +78,27 @@ class FabricClient:
         cls._credential_cache[cache_key] = credential
         return credential
 
+    @staticmethod
+    def _get_notebook_token():
+        """Get AAD token from Fabric notebook runtime."""
+        scope = "https://database.windows.net/"
+        try:
+            import notebookutils  # type: ignore
+
+            if hasattr(notebookutils, "credentials"):
+                return notebookutils.credentials.getToken(scope)
+        except Exception:
+            pass
+
+        try:
+            from notebookutils import mssparkutils  # type: ignore
+
+            return mssparkutils.credentials.getToken(scope)
+        except Exception as exc:
+            raise RuntimeError(
+                "FABRIC_AUTH_METHOD=Notebook requires Fabric notebook runtime credentials APIs."
+            ) from exc
+
     def connect(self):
         """Connect to Microsoft Fabric Lakehouse SQL Endpoint"""
 
@@ -69,10 +116,11 @@ class FabricClient:
         # ---- Authentication ----
         auth_method = self.config.get(
             "FABRIC", "FABRIC_AUTH_METHOD", fallback="Interactive"
-        ).strip().lower()
-        tenant_id = self.config.get("FABRIC", "FABRIC_TENANT_ID")
+        )
+        auth_method = auth_method.strip().lower()
 
         if auth_method == "serviceprincipal":
+            tenant_id = self.config.get("FABRIC", "FABRIC_TENANT_ID")
             client_id = self.config.get("FABRIC", "FABRIC_CLIENT_ID")
             client_secret = self.config.get("FABRIC", "FABRIC_CLIENT_SECRET")
             credential = self._get_credential(
@@ -81,14 +129,18 @@ class FabricClient:
                 client_id=client_id,
                 client_secret=client_secret,
             )
+            token = credential.get_token(
+                "https://database.windows.net/.default"
+            ).token
+        elif auth_method == "notebook":
+            token = self._get_notebook_token()
         else:
             # Interactive browser authentication (MFA supported)
+            tenant_id = self.config.get("FABRIC", "FABRIC_TENANT_ID")
             credential = self._get_credential(auth_method="interactive", tenant_id=tenant_id)
-
-        # ---- Acquire access token ----
-        token = credential.get_token(
-            "https://database.windows.net/.default"
-        ).token
+            token = credential.get_token(
+                "https://database.windows.net/.default"
+            ).token
 
         # ---- Convert token for pyodbc ----
         token_bytes = token.encode("utf-16-le")
@@ -113,84 +165,18 @@ class FabricClient:
 
         return self.connection
 
-    def _ensure_connection(self):
-        """Ensure an active connection exists."""
-        if self.connection is None:
-            return self.connect()
-        return self.connection
-
-    def _reconnect(self):
-        """Force reconnection for stale/broken sessions."""
-        self.close()
-        return self.connect()
-
-    @staticmethod
-    def _is_transient_pyodbc_error(exc: pyodbc.Error) -> bool:
-        """Best-effort detection for stale or transient Fabric/ODBC failures."""
-        message = " ".join(str(arg) for arg in getattr(exc, "args", ()) if arg).lower()
-        transient_markers = (
-            "communication link failure",
-            "connection is busy",
-            "connection was not open",
-            "connection is closed",
-            "closed connection",
-            "08s01",
-            "08003",
-            "08001",
-            "hyt00",
-            "hyt01",
-            "timeout expired",
-            "login timeout expired",
-            "transport-level error",
-            "network-related",
-            "server has gone away",
-            "semaphore timeout period has expired",
-            "connection reset",
-            "session",
-        )
-        return any(marker in message for marker in transient_markers)
-
-    def _run_query_once(self, query: str):
-        """Execute one query attempt and always close the cursor."""
-        connection = self._ensure_connection()
-        cursor: Optional[pyodbc.Cursor] = None
-        try:
-            cursor = connection.cursor()
-            cursor.execute(query)
-            if cursor.description is None:
-                return []
-
-            columns = [col[0] for col in cursor.description]
-            rows = cursor.fetchall()
-            return [dict(zip(columns, row)) for row in rows]
-        finally:
-            if cursor is not None:
-                cursor.close()
-
     def execute_query(self, query):
-        """Execute SQL query and return results."""
-        if self.connection_strategy == "reconnect_per_query":
-            self._reconnect()
+        """Execute SQL query and return results"""
+        if not self.connection:
+            self.connect()
 
-        try:
-            return self._run_query_once(query)
-        except pyodbc.Error as exc:
-            if self._is_transient_pyodbc_error(exc):
-                self._reconnect()
-                try:
-                    print(
-                        f"[FabricClient:{self.layer}] transient query error detected; "
-                        "reconnecting and retrying once."
-                    )
-                    return self._run_query_once(query)
-                except pyodbc.Error as retry_exc:
-                    raise RuntimeError(
-                        f"{self.layer} query failed after reconnect retry: "
-                        f"{retry_exc.__class__.__name__}: {retry_exc}"
-                    ) from retry_exc
-            raise RuntimeError(
-                f"{self.layer} query failed: {exc.__class__.__name__}: {exc}"
-            ) from exc
+        cursor = self.connection.cursor()
+        cursor.execute(query)
+
+        columns = [col[0] for col in cursor.description]
+        rows = cursor.fetchall()
+
+        return [dict(zip(columns, row)) for row in rows]
 
     def close(self):
         """Close database connection"""
