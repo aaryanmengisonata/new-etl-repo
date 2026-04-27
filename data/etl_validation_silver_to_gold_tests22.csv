@@ -26,7 +26,7 @@ from (SELECT * FROM  [LH_Finance].[dbo].[dimensionattributevalue] WHERE dpmodifi
   left join  [LH_Finance].[dbo].[financeglobaldimensionvalues] fgv
   ON coalesce(dav.displayvalue, dalv.displayvalue, '') = fgv.Dimension_value
 where da.name = '{Dimension}' AND coalesce(dav.displayvalue, dalv.displayvalue, '') <> '' and dav.isdelete=0) X
-) as a",SELECT COUNT(*) FROM enterprise_dwh.Finance.{table_name}  WHERE IsDelete <> 1,row_count_comparison,FALSE,Dim-Validating active record count between Silver and Gold,major,,,"DIM_Bankaccount,DIM_Site,DIM_ProjectCode,DIM_InterCompanyRecharge,DIM_ReportingTerritory,DIM_SubDepartment",,,,,,,,,,,,,,,,,,,"Bankaccount,Site,ProjectCode,InterCompanyRecharge,ReportingTerritory,SubDepartment",,
+) as a",SELECT COUNT(*) FROM enterprise_dwh.Finance.{table_name}  WHERE IsDelete <> 1,row_count_comparison,TRUE,Dim-Validating active record count between Silver and Gold,major,,,"DIM_Bankaccount,DIM_Site,DIM_ProjectCode,DIM_InterCompanyRecharge,DIM_ReportingTerritory,DIM_SubDepartment",,,,,,,,,,,,,,,,,,,"Bankaccount,Site,ProjectCode,InterCompanyRecharge,ReportingTerritory,SubDepartment",,
 test_02,column value validation reference,"select lhname as LHName, count(*)  as Rowcounts from(   SELECT DISTINCT
   ISNULL(da.name, '') AS ['+{Dimension}+'Name],
   ISNULL(coalesce(dav.displayvalue, dalv.displayvalue, ''), '') AS [' + {Dimension} + 'Value],
@@ -185,21 +185,9 @@ test_10,inserted records ,"select   recid,recversion,isdelete,dpcreateddatetime,
  where da.name = 'Worker' AND coalesce(dav.displayvalue, dalv.displayvalue, '') <> ''and dav.isdelete=0) X 
  where recid IN ({recid_list}) 
  order by 4 desc","select top 10 percent recid ,recversion,dpcreateddatetime,dpmodifieddatetime FROM enterprise_dwh.Finance.{table_name}
-order by 4 desc",insert_record_validation_group,FALSE,Dim- Verifying inserted records based on recids.,major,,,DIM_Worker,,,,,,,,,,,,,,,,,,,,Gold,Gold
-test_11,active records count,"    DECLARE @Date datetime2(6) = CAST(GETDATE() AS datetime2(6))
-    DECLARE @LastProcessedDate varchar(20), @MaxDPModifiedDateTime varchar(20)
-    SET @LastProcessedDate = (SELECT CONVERT(varchar(20),MAX(ProcessedDate),120) FROM audit.AuditTable WHERE TableName = 'DIM_MainAccount')
-    SET @MaxDPModifiedDateTime = (SELECT CONVERT(varchar(20),MAX(dpmodifieddatetime),120) FROM [lh_finance_silver].[lh_finance].[mainaccount])
-
- DROP TABLE IF EXISTS #MaxProcessedDate1
- SELECT CONVERT(varchar(20), MAX(ProcessedDate), 120) MaxProcessedDate,
-   LHName
- INTO #MaxProcessedDate1
- FROM audit.AuditTable
- WHERE TableName = 'DIM_MainAccount'
- GROUP BY LHName
-
-    select count(*) as TargetIncrementalCount from (     SELECT DISTINCT
+order by 4 desc",insert_record_validation_group,FALSE,Dim- Verifying inserted records based on recids.,major,,,DIM_Worker,,,,,,,,,,,,,,,,,,,,,
+test_11,active records count," select count(*) from (
+select recid, recversion, dpcreateddatetime, dpmodifieddatetime, isdelete from(  SELECT DISTINCT
         ISNULL(MA.mainaccountid, '') AS [MainAccountID],
         ISNULL(MA.name, '') AS [MainAccountName],
         ISNULL(LCOA.name, '') AS [ChartOfAccounts],
@@ -219,55 +207,23 @@ test_11,active records count,"    DECLARE @Date datetime2(6) = CAST(GETDATE() AS
         CONVERT(varchar(20),ISNULL(MA.dpcreateddatetime,'1900-01-01'),120) AS DPCreatedDateTime,
         CONVERT(varchar(20),ISNULL(MA.dpmodifieddatetime,'1900-01-01'),120) AS DPModifiedDateTime,
         MA.isdelete
-    FROM (SELECT * FROM [lh_finance_silver].[lh_finance].[mainaccount] Mav
-    WHERE dpmodifieddatetime > ISNULL((SELECT MaxProcessedDate FROM #MaxProcessedDate1 WHERE LHName = Mav.LHName), '1900-01-01')) as MA
-        LEFT JOIN [lh_finance_silver].[lh_finance].[ledgerchartofaccounts] LCOA 
+    FROM (SELECT * FROM  [mainaccount] Mav --ISNULL((SELECT MaxProcessedDate FROM #MaxProcessedDate WHERE LHName = davp.LHName), '1900-01-01')) as dav
+    WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as MA
+        LEFT JOIN  [ledgerchartofaccounts] LCOA 
             ON MA.ledgerchartofaccounts = LCOA.recid AND MA.lhname = LCOA.lhname
-        LEFT JOIN [lh_finance_silver].[lh_finance].[mainaccountcategory] MAC 
+        LEFT JOIN  [mainaccountcategory] MAC 
             ON MA.accountcategoryref = MAC.accountcategoryref AND MA.lhname = MAC.lhname
-        LEFT JOIN [lh_finance_silver].[lh_finance].[dimensionattributevalue] DAV 
+        LEFT JOIN  [dimensionattributevalue] DAV 
             ON MA.recid = DAV.entityinstance AND MA.lhname = DAV.lhname
-        LEFT JOIN [lh_finance_silver].[lh_finance].[dimensionattribute] DA 
+        LEFT JOIN  [dimensionattribute] DA 
             ON DAV.dimensionattribute = DA.recid AND DA.type = 2 AND MA.lhname = DA.lhname
-        LEFT JOIN [lh_finance_silver].[lh_finance].[altglobalcoaconsolidation] AGC 
+        LEFT JOIN  [altglobalcoaconsolidation] AGC 
             ON AGC.globalconsolidationcode = MA.consolidationmainaccount AND MA.lhname = AGC.lhname
-        LEFT JOIN [lh_finance_silver].[lh_finance].[enum] Enum 
+        LEFT JOIN  [enum] Enum 
             ON MA.[type] = Enum.elementvalue AND Enum.tablename = 'MainAccount' AND Enum.fieldname = 'Type'
-    WHERE DA.Type = 2
-
-) as a ","DECLARE @PrevProcessedDate DATE;
-DECLARE @CurrProcessedDate DATE;
-
--- Current date (today)
-SET @CurrProcessedDate = CAST(GETDATE() AS DATE);
-
--- Previous processed date (last run before today)
-SELECT @PrevProcessedDate = MAX(CAST(ProcessedDate AS DATE))
-FROM audit.AuditTable
-WHERE TableName = 'DIM_MainAccount'
-  AND CAST(ProcessedDate AS DATE) < @CurrProcessedDate;
-
-SELECT
-    COUNT(*) AS TargetIncrementalCount
-FROM enterprise_dwh.Finance.DIM_MainAccount T
-WHERE
-    T.DPModifiedDateTime > ISNULL(@PrevProcessedDate, '1900-01-01')
-    AND T.DPModifiedDateTime <= @CurrProcessedDate
-",row_count_comparison,FALSE,Dim_MainAccount -Validating active record count between Silver and Gold,major,,,DIM_MainAccount,,,,,,,,,,,,,,,,,,,MainAccount,Gold,Gold
-test_12,column value validation reference,"    DECLARE @Date datetime2(6) = CAST(GETDATE() AS datetime2(6))
-    DECLARE @LastProcessedDate varchar(20), @MaxDPModifiedDateTime varchar(20)
-    SET @LastProcessedDate = (SELECT CONVERT(varchar(20),MAX(ProcessedDate),120) FROM audit.AuditTable WHERE TableName = 'DIM_MainAccount')
-    SET @MaxDPModifiedDateTime = (SELECT CONVERT(varchar(20),MAX(dpmodifieddatetime),120) FROM [lh_finance_silver].[lh_finance].[mainaccount])
-
- DROP TABLE IF EXISTS #MaxProcessedDate1
- SELECT CONVERT(varchar(20), MAX(ProcessedDate), 120) MaxProcessedDate,
-   LHName
- INTO #MaxProcessedDate1
- FROM audit.AuditTable
- WHERE TableName = 'DIM_MainAccount'
- GROUP BY LHName
-
-    select  LHName, count(*) as Rowcounts from (     SELECT DISTINCT
+    WHERE DA.Type = 2 and MA.isdelete =0 ) X
+) as a",SELECT COUNT(*) FROM enterprise_dwh.Finance.{table_name}  WHERE IsDelete <> 1,row_count_comparison,FALSE,Dim-Validating active record count between Silver and Gold,major,,,DIM_MainAccount,,,,,,,,,,,,,,,,,,,MainAccount,,
+test_12,column value validation reference,"select lhname as LHName ,count(*) as Rowcounts from(       SELECT DISTINCT
         ISNULL(MA.mainaccountid, '') AS [MainAccountID],
         ISNULL(MA.name, '') AS [MainAccountName],
         ISNULL(LCOA.name, '') AS [ChartOfAccounts],
@@ -287,43 +243,21 @@ test_12,column value validation reference,"    DECLARE @Date datetime2(6) = CAST
         CONVERT(varchar(20),ISNULL(MA.dpcreateddatetime,'1900-01-01'),120) AS DPCreatedDateTime,
         CONVERT(varchar(20),ISNULL(MA.dpmodifieddatetime,'1900-01-01'),120) AS DPModifiedDateTime,
         MA.isdelete
-    FROM (SELECT * FROM [lh_finance_silver].[lh_finance].[mainaccount] Mav
-    WHERE dpmodifieddatetime > ISNULL((SELECT MaxProcessedDate FROM #MaxProcessedDate1 WHERE LHName = Mav.LHName), '1900-01-01')) as MA
-        LEFT JOIN [lh_finance_silver].[lh_finance].[ledgerchartofaccounts] LCOA 
+    FROM (SELECT * FROM [LH_Finance].[dbo].[mainaccount] Mav
+    WHERE dpmodifieddatetime > '2019-01-01 00:00:00') as  MA
+        LEFT JOIN [LH_Finance].[dbo].[ledgerchartofaccounts] LCOA 
             ON MA.ledgerchartofaccounts = LCOA.recid AND MA.lhname = LCOA.lhname
-        LEFT JOIN [lh_finance_silver].[lh_finance].[mainaccountcategory] MAC 
+        LEFT JOIN [LH_Finance].[dbo].[mainaccountcategory] MAC 
             ON MA.accountcategoryref = MAC.accountcategoryref AND MA.lhname = MAC.lhname
-        LEFT JOIN [lh_finance_silver].[lh_finance].[dimensionattributevalue] DAV 
+        LEFT JOIN [LH_Finance].[dbo].[dimensionattributevalue] DAV 
             ON MA.recid = DAV.entityinstance AND MA.lhname = DAV.lhname
-        LEFT JOIN [lh_finance_silver].[lh_finance].[dimensionattribute] DA 
+        LEFT JOIN [LH_Finance].[dbo].[dimensionattribute] DA 
             ON DAV.dimensionattribute = DA.recid AND DA.type = 2 AND MA.lhname = DA.lhname
-        LEFT JOIN [lh_finance_silver].[lh_finance].[altglobalcoaconsolidation] AGC 
+        LEFT JOIN [LH_Finance].[dbo].[altglobalcoaconsolidation] AGC 
             ON AGC.globalconsolidationcode = MA.consolidationmainaccount AND MA.lhname = AGC.lhname
-        LEFT JOIN [lh_finance_silver].[lh_finance].[enum] Enum 
+        LEFT JOIN [LH_Finance].[dbo].[enum] Enum 
             ON MA.[type] = Enum.elementvalue AND Enum.tablename = 'MainAccount' AND Enum.fieldname = 'Type'
-    WHERE DA.Type = 2
-
-) as a GROUP by LHName","DECLARE @PrevProcessedDate DATE;
-DECLARE @CurrProcessedDate DATE;
-
--- Current date (today)
-SET @CurrProcessedDate = CAST(GETDATE() AS DATE);
-
--- Previous processed date (last run before today)
-SELECT @PrevProcessedDate = MAX(CAST(ProcessedDate AS DATE))
-FROM audit.AuditTable
-WHERE TableName = 'DIM_MainAccount'
-  AND CAST(ProcessedDate AS DATE) < @CurrProcessedDate;
-
-SELECT
-    T.LHName,
-    COUNT(*) AS Rowcounts
-FROM enterprise_dwh.Finance.DIM_MainAccount T
-WHERE
-    T.DPModifiedDateTime > ISNULL(@PrevProcessedDate, '1900-01-01')
-    AND T.DPModifiedDateTime <= @CurrProcessedDate
-GROUP BY    T.LHName
-ORDER BY    T.LHName;",column_value_validation,TRUE,Dim_MainAccount - Validate active record count between Silver and Gold based on Lhname.,major,,,DIM_MainAccount,,,,,,,,"LHName, Rowcounts",,,,,,,,,,,MainAccount,Gold,Gold
+    WHERE DA.Type = 2  and dav.isdelete=0 ) X group by lhname order by 1","SELECT LHName, COUNT(*) AS Rowcounts FROM enterprise_dwh.Finance.{table_name} GROUP BY LHName order by 1",column_value_validation,FALSE,Dim- Validate active record count between Silver and Gold based on Lhname.,major,,,DIM_MainAccount,,,,,,,,"LHName, Rowcounts",,,,,,,,,,,MainAccount,,
 test_13,inserted records ,"select   recid,recversion,isdelete,dpcreateddatetime,dpmodifieddatetime from(     SELECT DISTINCT
         ISNULL(MA.mainaccountid, '') AS [MainAccountID],
         ISNULL(MA.name, '') AS [MainAccountName],
@@ -1259,8 +1193,8 @@ CONCAT(vs.TRANSRECID, vs.Dataareaid, vs.LHName) as relation,
 vs.IsDelete
  
 FROM (SELECT * FROM [lh_finance_silver].[lh_finance].VENDSETTLEMENT g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') vs
-LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON vs.transdate = DD.fulldate
-LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON vs.dataareaid = DE.[DataAreaID]
+LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON vs.transdate = DD.fulldate
+LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON vs.dataareaid = DE.[DataAreaID]
  Where vs.Isdelete = 0 ) as a
  ",SELECT COUNT(*) FROM enterprise_dwh.Finance.Fact_APSettlement WHERE IsDelete = 0;,row_count_comparison,FALSE,FACT AP_SETTLEMENTS -Validating active record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
 test_34,column value validation reference,"select LHName , count(*) as Rowcounts from (
@@ -1282,8 +1216,8 @@ CONCAT(vs.TRANSRECID, vs.Dataareaid, vs.LHName) as relation,
 vs.IsDelete
  
 FROM (SELECT * FROM [lh_finance_silver].[lh_finance].VENDSETTLEMENT g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') vs
-LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON vs.transdate = DD.fulldate
-LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON vs.dataareaid = DE.[DataAreaID]
+LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON vs.transdate = DD.fulldate
+LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON vs.dataareaid = DE.[DataAreaID]
  Where vs.Isdelete = 0 ) as a group by lhname order by 1","SELECT LHName, COUNT(*) AS Rowcounts FROM Finance.Fact_APSettlement GROUP BY LHName order by 1;",column_value_validation,FALSE,FACT AP_SETTLEMENTS -Validate active record count between Silver and Gold based on Lhname.,major,,,,,,,,,,,"LHName, Rowcounts",,,,,,,,,,,,Gold,Gold
 test_35,deleted records,,SELECT * FROM Finance.Fact_APSettlement WHERE IsDelete=1;,target_zero_count_validation,FALSE,FACT AP_SETTLEMENTS -Verifying any deleted records available in fact.,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
 test_36,inserted records ,"select recid,recversion,isdelete,dpcreateddatetime,dpmodifieddatetime,lhname from (
@@ -1305,8 +1239,8 @@ CONCAT(vs.TRANSRECID, vs.Dataareaid, vs.LHName) as relation,
 vs.IsDelete
  
 FROM (SELECT * FROM [lh_finance_silver].[lh_finance].VENDSETTLEMENT g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') vs
-LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON vs.transdate = DD.fulldate
-LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON vs.dataareaid = DE.[DataAreaID]
+LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON vs.transdate = DD.fulldate
+LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON vs.dataareaid = DE.[DataAreaID]
  Where vs.Isdelete = 0 ) as a where recid in ({recid_list})","select  TOP 0.1 percent  recid ,recversion,dpcreateddatetime,dpmodifieddatetime,lhname FROM Finance.Fact_APSettlement
 order by 4 desc",insert_record_validation_group,FALSE,FACT AP_SETTLEMENTS -Verifying inserted records based on recids.,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
 test_37,verify deleted records,,"select top 1 percent recid ,recversion,dpcreateddatetime,dpmodifieddatetime FROM Finance.Fact_APSettlement  where isdelete =1
@@ -1403,18 +1337,18 @@ select count(*) as Rowcounts from (
  FROM (SELECT * FROM [lh_finance_silver].[lh_finance].vendtrans g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') vt 
   LEFT JOIN VijResolved vr ON vr.VendTransRecId = vt.recid AND vr.dataareaid = vt.dataareaid AND vr.LHName = vt.LHName
   LEFT JOIN [lh_finance_silver].[lh_finance].purchtable pt ON pt.purchid = vr.purchid AND pt.invoiceaccount = vr.invoiceaccount AND pt.LHName = vr.LHName
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Vendor] DV  ON UPPER(DV.dataareaid) = UPPER(vt.dataareaid) AND DV.acctnum = vt.accountnum AND
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Vendor] DV  ON UPPER(DV.dataareaid) = UPPER(vt.dataareaid) AND DV.acctnum = vt.accountnum AND
      (InstanceID = (CASE WHEN vt.LHName = 'LH_D365_NAADD_PRD' THEN 25
         WHEN vt.LHName = 'LH_D365_EMEA_PRD' THEN 23
         WHEN vt.LHName = 'LH_D365_APACEAST_PRD' THEN 26
         WHEN vt.LHName = 'LH_D365_APAC_PRD' THEN 22
         WHEN vt.LHName = 'LH_D365_LATAM_PRD' THEN 20 END) 
       OR vt.LHName NOT IN ('LH_D365_NAADD_PRD', 'LH_D365_EMEA_PRD', 'LH_D365_APACEAST_PRD', 'LH_D365_APAC_PRD', 'LH_D365_LATAM_PRD'))
-  LEFT JOIN [msfd_dw_qat].[GLD].[DDIM_Vendor] DVMSFD  ON UPPER(DVMSFD.dataareaid) = UPPER(vt.dataareaid) AND DVMSFD.acctnum = vt.accountnum
-  LEFT JOIN [usfeeds_dw_qat].[GLD].[DDIM_Vendor] DVUSFD  ON UPPER(DVUSFD.dataareaid) = UPPER(vt.dataareaid) AND DVUSFD.acctnum = vt.accountnum
-  LEFT JOIN [aan_dw_qat].[GLD].[DDIM_Vendor] DVANFD  ON UPPER(DVANFD.dataareaid) = UPPER(vt.dataareaid) AND DVANFD.acctnum = vt.accountnum
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON vt.transdate = DD.fulldate
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON vt.dataareaid = DE.[DataAreaID]
+  LEFT JOIN [msfd_dw_dev].[GLD].[DDIM_Vendor] DVMSFD  ON UPPER(DVMSFD.dataareaid) = UPPER(vt.dataareaid) AND DVMSFD.acctnum = vt.accountnum
+  LEFT JOIN [usfeeds_dw_dev].[GLD].[DDIM_Vendor] DVUSFD  ON UPPER(DVUSFD.dataareaid) = UPPER(vt.dataareaid) AND DVUSFD.acctnum = vt.accountnum
+  LEFT JOIN [aan_dw_dev].[GLD].[DDIM_Vendor] DVANFD  ON UPPER(DVANFD.dataareaid) = UPPER(vt.dataareaid) AND DVANFD.acctnum = vt.accountnum
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON vt.transdate = DD.fulldate
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON vt.dataareaid = DE.[DataAreaID]
         Where vt.Isdelete = 0 ) as a ",SELECT COUNT(*) FROM enterprise_dwh.Finance.Fact_APTransaction WHERE IsDelete = 0;,row_count_comparison,FALSE,FACT AP_Transactions -Validating active record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
 test_40,column value validation reference,";WITH VijResolved AS
  (
@@ -1505,18 +1439,18 @@ select LHName , count(*) as Rowcounts from (
  FROM (SELECT * FROM [lh_finance_silver].[lh_finance].vendtrans g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') vt 
   LEFT JOIN VijResolved vr ON vr.VendTransRecId = vt.recid AND vr.dataareaid = vt.dataareaid AND vr.LHName = vt.LHName
   LEFT JOIN [lh_finance_silver].[lh_finance].purchtable pt ON pt.purchid = vr.purchid AND pt.invoiceaccount = vr.invoiceaccount AND pt.LHName = vr.LHName
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Vendor] DV  ON UPPER(DV.dataareaid) = UPPER(vt.dataareaid) AND DV.acctnum = vt.accountnum AND
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Vendor] DV  ON UPPER(DV.dataareaid) = UPPER(vt.dataareaid) AND DV.acctnum = vt.accountnum AND
      (InstanceID = (CASE WHEN vt.LHName = 'LH_D365_NAADD_PRD' THEN 25
         WHEN vt.LHName = 'LH_D365_EMEA_PRD' THEN 23
         WHEN vt.LHName = 'LH_D365_APACEAST_PRD' THEN 26
         WHEN vt.LHName = 'LH_D365_APAC_PRD' THEN 22
         WHEN vt.LHName = 'LH_D365_LATAM_PRD' THEN 20 END) 
       OR vt.LHName NOT IN ('LH_D365_NAADD_PRD', 'LH_D365_EMEA_PRD', 'LH_D365_APACEAST_PRD', 'LH_D365_APAC_PRD', 'LH_D365_LATAM_PRD'))
-  LEFT JOIN [msfd_dw_qat].[GLD].[DDIM_Vendor] DVMSFD  ON UPPER(DVMSFD.dataareaid) = UPPER(vt.dataareaid) AND DVMSFD.acctnum = vt.accountnum
-  LEFT JOIN [usfeeds_dw_qat].[GLD].[DDIM_Vendor] DVUSFD  ON UPPER(DVUSFD.dataareaid) = UPPER(vt.dataareaid) AND DVUSFD.acctnum = vt.accountnum
-  LEFT JOIN [aan_dw_qat].[GLD].[DDIM_Vendor] DVANFD  ON UPPER(DVANFD.dataareaid) = UPPER(vt.dataareaid) AND DVANFD.acctnum = vt.accountnum
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON vt.transdate = DD.fulldate
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON vt.dataareaid = DE.[DataAreaID]
+  LEFT JOIN [msfd_dw_dev].[GLD].[DDIM_Vendor] DVMSFD  ON UPPER(DVMSFD.dataareaid) = UPPER(vt.dataareaid) AND DVMSFD.acctnum = vt.accountnum
+  LEFT JOIN [usfeeds_dw_dev].[GLD].[DDIM_Vendor] DVUSFD  ON UPPER(DVUSFD.dataareaid) = UPPER(vt.dataareaid) AND DVUSFD.acctnum = vt.accountnum
+  LEFT JOIN [aan_dw_dev].[GLD].[DDIM_Vendor] DVANFD  ON UPPER(DVANFD.dataareaid) = UPPER(vt.dataareaid) AND DVANFD.acctnum = vt.accountnum
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON vt.transdate = DD.fulldate
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON vt.dataareaid = DE.[DataAreaID]
         where vt.Isdelete = 0 ) as a  group by lhname order by 1;","SELECT LHName, COUNT(*) AS Rowcounts FROM Finance.Fact_APTransaction GROUP BY LHName order by 1;",column_value_validation,FALSE,FACT AP_Transactions -Validate active record count between Silver and Gold based on Lhname.,major,,,,,,,,,,,"LHName, Rowcounts",,,,,,,,,,,,Gold,Gold
 test_41,deleted records,,SELECT * FROM Finance.Fact_APTransaction WHERE IsDelete=1;,target_zero_count_validation,FALSE,FACT AP_Transactions -Verifying any deleted records available in fact.,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
 test_42,inserted records ,";WITH VijResolved AS
@@ -1608,18 +1542,18 @@ select recid,recversion,isdelete,dpcreateddatetime,dpmodifieddatetime,lhname fro
  FROM (SELECT * FROM [lh_finance_silver].[lh_finance].vendtrans g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') vt 
   LEFT JOIN VijResolved vr ON vr.VendTransRecId = vt.recid AND vr.dataareaid = vt.dataareaid AND vr.LHName = vt.LHName
   LEFT JOIN [lh_finance_silver].[lh_finance].purchtable pt ON pt.purchid = vr.purchid AND pt.invoiceaccount = vr.invoiceaccount AND pt.LHName = vr.LHName
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Vendor] DV  ON UPPER(DV.dataareaid) = UPPER(vt.dataareaid) AND DV.acctnum = vt.accountnum AND
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Vendor] DV  ON UPPER(DV.dataareaid) = UPPER(vt.dataareaid) AND DV.acctnum = vt.accountnum AND
      (InstanceID = (CASE WHEN vt.LHName = 'LH_D365_NAADD_PRD' THEN 25
         WHEN vt.LHName = 'LH_D365_EMEA_PRD' THEN 23
         WHEN vt.LHName = 'LH_D365_APACEAST_PRD' THEN 26
         WHEN vt.LHName = 'LH_D365_APAC_PRD' THEN 22
         WHEN vt.LHName = 'LH_D365_LATAM_PRD' THEN 20 END) 
       OR vt.LHName NOT IN ('LH_D365_NAADD_PRD', 'LH_D365_EMEA_PRD', 'LH_D365_APACEAST_PRD', 'LH_D365_APAC_PRD', 'LH_D365_LATAM_PRD'))
-  LEFT JOIN [msfd_dw_qat].[GLD].[DDIM_Vendor] DVMSFD  ON UPPER(DVMSFD.dataareaid) = UPPER(vt.dataareaid) AND DVMSFD.acctnum = vt.accountnum
-  LEFT JOIN [usfeeds_dw_qat].[GLD].[DDIM_Vendor] DVUSFD  ON UPPER(DVUSFD.dataareaid) = UPPER(vt.dataareaid) AND DVUSFD.acctnum = vt.accountnum
-  LEFT JOIN [aan_dw_qat].[GLD].[DDIM_Vendor] DVANFD  ON UPPER(DVANFD.dataareaid) = UPPER(vt.dataareaid) AND DVANFD.acctnum = vt.accountnum
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON vt.transdate = DD.fulldate
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON vt.dataareaid = DE.[DataAreaID]
+  LEFT JOIN [msfd_dw_dev].[GLD].[DDIM_Vendor] DVMSFD  ON UPPER(DVMSFD.dataareaid) = UPPER(vt.dataareaid) AND DVMSFD.acctnum = vt.accountnum
+  LEFT JOIN [usfeeds_dw_dev].[GLD].[DDIM_Vendor] DVUSFD  ON UPPER(DVUSFD.dataareaid) = UPPER(vt.dataareaid) AND DVUSFD.acctnum = vt.accountnum
+  LEFT JOIN [aan_dw_dev].[GLD].[DDIM_Vendor] DVANFD  ON UPPER(DVANFD.dataareaid) = UPPER(vt.dataareaid) AND DVANFD.acctnum = vt.accountnum
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON vt.transdate = DD.fulldate
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON vt.dataareaid = DE.[DataAreaID]
         Where vt.Isdelete = 0 ) as a where recid in ({recid_list}) 
     ","select  TOP 0.1 percent  recid ,recversion,dpcreateddatetime,dpmodifieddatetime,lhname FROM Finance.Fact_APTransaction
 order by 4 desc
@@ -1647,8 +1581,8 @@ SELECT
    cs.LHName,
    CONCAT(cs.TRANSRECID, cs.Dataareaid, cs.LHName) RelCol
   FROM (SELECT * FROM [lh_finance_silver].[lh_finance].CUSTSETTLEMENT g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') cs
-   LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON cs.transdate = DD.fulldate
-   LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON cs.dataareaid = DE.[DataAreaID]
+   LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON cs.transdate = DD.fulldate
+   LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON cs.dataareaid = DE.[DataAreaID]
   Where cs.Isdelete = 0 ) as a ",SELECT COUNT(*) FROM enterprise_dwh.Finance.Fact_ARSettlement WHERE IsDelete = 0;,row_count_comparison,FALSE,FACT AR_Settlement -Validating active record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
 test_46,column value validation reference,"select LHName , count(*) as Rowcounts from ( 
 SELECT
@@ -1669,8 +1603,8 @@ SELECT
    cs.LHName,
    CONCAT(cs.TRANSRECID, cs.Dataareaid, cs.LHName) RelCol
   FROM (SELECT * FROM [lh_finance_silver].[lh_finance].CUSTSETTLEMENT g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') cs
-   LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON cs.transdate = DD.fulldate
-   LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON cs.dataareaid = DE.[DataAreaID]
+   LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON cs.transdate = DD.fulldate
+   LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON cs.dataareaid = DE.[DataAreaID]
  Where cs.Isdelete = 0 ) as a group by lhname order by 1
 ","SELECT LHName, COUNT(*) AS Rowcounts FROM Finance.Fact_ARSettlement GROUP BY LHName order by 1;",column_value_validation,FALSE,FACT AR_Settlement -Validate active record count between Silver and Gold based on Lhname.,major,,,,,,,,,,,"LHName, Rowcounts",,,,,,,,,,,,Gold,Gold
 test_47,deleted records,,SELECT * FROM Finance.Fact_ARSettlement WHERE IsDelete=1;,target_zero_count_validation,FALSE,FACT AR_Settlement -Verifying any deleted records available in fact.,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
@@ -1693,8 +1627,8 @@ SELECT
    cs.LHName,
    CONCAT(cs.TRANSRECID, cs.Dataareaid, cs.LHName) RelCol
   FROM (SELECT * FROM [lh_finance_silver].[lh_finance].CUSTSETTLEMENT g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') cs
-   LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON cs.transdate = DD.fulldate
-   LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON cs.dataareaid = DE.[DataAreaID]
+   LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON cs.transdate = DD.fulldate
+   LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON cs.dataareaid = DE.[DataAreaID]
  Where cs.Isdelete = 0 ) as a 
  where recid in ({recid_list}) ","select  TOP 0.1 percent  recid ,recversion,dpcreateddatetime,dpmodifieddatetime,lhname FROM Finance.Fact_ARSettlement
 order by 4 desc",insert_record_validation_group,FALSE,FACT AR_Settlement -Verifying inserted records based on recids.,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
@@ -1775,17 +1709,17 @@ SELECT COUNT(*) AS RowCounts from (
  FROM (SELECT * FROM [lh_finance_silver].[lh_finance].custtrans g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') ct 
   LEFT JOIN cij1 cij ON cij.dataareaid = ct.dataareaid AND cij.ledgervoucher = ct.voucher AND cij.invoiceid = ct.invoice AND cij.invoiceaccount = ct.accountnum AND cij.rn = 1 AND cij.lhname = ct.lhname
   LEFT JOIN [lh_finance_silver].[lh_finance].salestable st ON st.salesid = cij.salesid AND st.invoiceaccount = cij.invoiceaccount AND st.LHName = ct.LHName
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Customer] DC  ON UPPER(DC.dataareaid) = UPPER(ct.dataareaid) AND DC.[CustomerNumber] = ct.accountnum AND 
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Customer] DC  ON UPPER(DC.dataareaid) = UPPER(ct.dataareaid) AND DC.[CustomerNumber] = ct.accountnum AND 
     (FK_InstanceID = (CASE WHEN ct.LHName = 'LH_D365_NAADD_PRD' THEN 25
         WHEN ct.LHName = 'LH_D365_EMEA_PRD' THEN 23
         WHEN ct.LHName = 'LH_D365_APACEAST_PRD' THEN 26
         WHEN ct.LHName = 'LH_D365_APAC_PRD' THEN 22
         WHEN ct.LHName = 'LH_D365_LATAM_PRD' THEN 20 END) OR ct.LHName NOT IN ('LH_D365_NAADD_PRD', 'LH_D365_EMEA_PRD', 'LH_D365_APACEAST_PRD', 'LH_D365_APAC_PRD', 'LH_D365_LATAM_PRD'))
-  LEFT JOIN [msfd_dw_qat].[GLD].[DDIM_Customer] DCMSFD  ON UPPER(DCMSFD.dataareaid) = UPPER(ct.dataareaid) AND DCMSFD.[AccountNum] = ct.accountnum
-  LEFT JOIN [usfeeds_dw_qat].[GLD].[DDIM_Customer] DCUSFD  ON UPPER(DCUSFD.dataareaid) = UPPER(ct.dataareaid) AND DCUSFD.[AccountNum] = ct.accountnum
-  LEFT JOIN [aan_dw_qat].[GLD].[DDIM_Customer] DCANFD  ON UPPER(DCANFD.dataareaid) = UPPER(ct.dataareaid) AND DCANFD.[AccountNum] = ct.accountnum
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON ct.transdate = DD.fulldate
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON ct.dataareaid = DE.[DataAreaID]
+  LEFT JOIN [msfd_dw_dev].[GLD].[DDIM_Customer] DCMSFD  ON UPPER(DCMSFD.dataareaid) = UPPER(ct.dataareaid) AND DCMSFD.[AccountNum] = ct.accountnum
+  LEFT JOIN [usfeeds_dw_dev].[GLD].[DDIM_Customer] DCUSFD  ON UPPER(DCUSFD.dataareaid) = UPPER(ct.dataareaid) AND DCUSFD.[AccountNum] = ct.accountnum
+  LEFT JOIN [aan_dw_dev].[GLD].[DDIM_Customer] DCANFD  ON UPPER(DCANFD.dataareaid) = UPPER(ct.dataareaid) AND DCANFD.[AccountNum] = ct.accountnum
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON ct.transdate = DD.fulldate
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON ct.dataareaid = DE.[DataAreaID]
         where ct.isdelete = 0) as a ",SELECT COUNT(*) FROM enterprise_dwh.Finance.Fact_ARTransaction WHERE IsDelete = 0;,row_count_comparison,FALSE,FACT AR_Transactions -Validating active record count between Silver and Gold,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
 test_52,column value validation reference,";WITH cij1 AS
     (
@@ -1859,11 +1793,11 @@ select LHName , count(*) as Rowcounts from (
     FROM (SELECT * FROM [lh_finance_silver].[lh_finance].custtrans g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') ct
         LEFT JOIN cij1 cij ON cij.dataareaid = ct.dataareaid AND cij.ledgervoucher = ct.voucher AND cij.invoiceid = ct.invoice AND cij.invoiceaccount = ct.accountnum AND cij.rn = 1 AND cij.lhname = ct.lhname
         LEFT JOIN [lh_finance_silver].[lh_finance].salestable st ON st.salesid = cij.salesid AND st.invoiceaccount = cij.invoiceaccount AND st.LHName = ct.LHName
-        LEFT JOIN [global_dw_qat].[GLD].[DIM_Customer] DC  ON UPPER(DC.dataareaid) = UPPER(ct.dataareaid) AND DC.[CustomerNumber] = ct.accountnum
-        LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON ct.transdate = DD.fulldate
-        LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON ct.dataareaid = DE.[DataAreaID]
+        LEFT JOIN [global_dw_dev].[GLD].[DIM_Customer] DC  ON UPPER(DC.dataareaid) = UPPER(ct.dataareaid) AND DC.[CustomerNumber] = ct.accountnum
+        LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON ct.transdate = DD.fulldate
+        LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON ct.dataareaid = DE.[DataAreaID]
         where ct.isdelete = 0) as a  group by lhname order by 1
- ","SELECT LHName, COUNT(*) AS Rowcounts FROM Finance.Fact_ARTransaction GROUP BY LHName order by 1;",column_value_validation,FALSE,FACT AR_Transactions -Validate active record count between Silver and Gold based on Lhname.,major,,,,,,,,,,,"LHName, Rowcounts",,,,,,,,,,,,Gold,Gold
+ ","SELECT LHName, COUNT(*) AS Rowcounts FROM Finance.Fact_ARTransaction GROUP BY LHName order by 1;",column_value_validation,TRUE,FACT AR_Transactions -Validate active record count between Silver and Gold based on Lhname.,major,,,,,,,,,,,"LHName, Rowcounts",,,,,,,,,,,,Gold,Gold
 test_53,deleted records,,SELECT * FROM Finance.Fact_ARTransaction WHERE IsDelete=1;,target_zero_count_validation,FALSE,FACT AR_Transactions -Verifying any deleted records available in fact.,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
 test_54,inserted records ,"  ;WITH cij1 AS
     (
@@ -1938,17 +1872,17 @@ select recid,recversion,isdelete,dpcreateddatetime,dpmodifieddatetime,lhname fro
  FROM (SELECT * FROM [lh_finance_silver].[lh_finance].custtrans g WHERE dpmodifieddatetime > '1900-01-01 00:00:00') ct 
   LEFT JOIN cij1 cij ON cij.dataareaid = ct.dataareaid AND cij.ledgervoucher = ct.voucher AND cij.invoiceid = ct.invoice AND cij.invoiceaccount = ct.accountnum AND cij.rn = 1 AND cij.lhname = ct.lhname
   LEFT JOIN [lh_finance_silver].[lh_finance].salestable st ON st.salesid = cij.salesid AND st.invoiceaccount = cij.invoiceaccount AND st.LHName = ct.LHName
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Customer] DC  ON UPPER(DC.dataareaid) = UPPER(ct.dataareaid) AND DC.[CustomerNumber] = ct.accountnum AND 
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Customer] DC  ON UPPER(DC.dataareaid) = UPPER(ct.dataareaid) AND DC.[CustomerNumber] = ct.accountnum AND 
     (FK_InstanceID = (CASE WHEN ct.LHName = 'LH_D365_NAADD_PRD' THEN 25
         WHEN ct.LHName = 'LH_D365_EMEA_PRD' THEN 23
         WHEN ct.LHName = 'LH_D365_APACEAST_PRD' THEN 26
         WHEN ct.LHName = 'LH_D365_APAC_PRD' THEN 22
         WHEN ct.LHName = 'LH_D365_LATAM_PRD' THEN 20 END) OR ct.LHName NOT IN ('LH_D365_NAADD_PRD', 'LH_D365_EMEA_PRD', 'LH_D365_APACEAST_PRD', 'LH_D365_APAC_PRD', 'LH_D365_LATAM_PRD'))
-  LEFT JOIN [msfd_dw_qat].[GLD].[DDIM_Customer] DCMSFD  ON UPPER(DCMSFD.dataareaid) = UPPER(ct.dataareaid) AND DCMSFD.[AccountNum] = ct.accountnum
-  LEFT JOIN [usfeeds_dw_qat].[GLD].[DDIM_Customer] DCUSFD  ON UPPER(DCUSFD.dataareaid) = UPPER(ct.dataareaid) AND DCUSFD.[AccountNum] = ct.accountnum
-  LEFT JOIN [aan_dw_qat].[GLD].[DDIM_Customer] DCANFD  ON UPPER(DCANFD.dataareaid) = UPPER(ct.dataareaid) AND DCANFD.[AccountNum] = ct.accountnum
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Date] DD ON ct.transdate = DD.fulldate
-  LEFT JOIN [global_dw_qat].[GLD].[DIM_Entity] DE ON ct.dataareaid = DE.[DataAreaID]
+  LEFT JOIN [msfd_dw_dev].[GLD].[DDIM_Customer] DCMSFD  ON UPPER(DCMSFD.dataareaid) = UPPER(ct.dataareaid) AND DCMSFD.[AccountNum] = ct.accountnum
+  LEFT JOIN [usfeeds_dw_dev].[GLD].[DDIM_Customer] DCUSFD  ON UPPER(DCUSFD.dataareaid) = UPPER(ct.dataareaid) AND DCUSFD.[AccountNum] = ct.accountnum
+  LEFT JOIN [aan_dw_dev].[GLD].[DDIM_Customer] DCANFD  ON UPPER(DCANFD.dataareaid) = UPPER(ct.dataareaid) AND DCANFD.[AccountNum] = ct.accountnum
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Date] DD ON ct.transdate = DD.fulldate
+  LEFT JOIN [global_dw_dev].[GLD].[DIM_Entity] DE ON ct.dataareaid = DE.[DataAreaID]
         Where ct.Isdelete = 0 ) as a where recid in ({recid_list}) ","select  TOP 0.1 percent  recid ,recversion,dpcreateddatetime,dpmodifieddatetime,lhname FROM Finance.Fact_ARTransaction
 order by 4 desc",insert_record_validation_group,FALSE,FACT AR_Transactions -Verifying inserted records based on recids.,major,,,,,,,,,,,,,,,,,,,,,,,Gold,Gold
 test_55,verify deleted records,,"select top 1 percent recid ,recversion,dpcreateddatetime,dpmodifieddatetime FROM Finance.Fact_ARTransaction  where isdelete =1
