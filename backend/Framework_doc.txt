@@ -1,0 +1,308 @@
+The best place to start is the Fabric “main path,” not the older sample tests.
+
+If you want to explain this framework clearly to someone else, use this order:
+
+1. `README.md` for the overall idea of the ETL framework.
+2. `FABRIC_SETUP_GUIDE.md` for Fabric-specific setup and execution flow.
+3. `config/master.properties` for environment, tenant, and Bronze/Silver/Gold endpoint wiring.
+4. `utils/fabric_client.py` because this is the actual connection layer to Microsoft Fabric.
+5. `tests/fabric/base_csv_driven_fabric_validation.py` because this is the real core of the Fabric framework.
+6. `utils/predefined_validations.py` because this contains the reusable validation logic.
+7. `data/etl_validation_bronze_to_silver_tests.csv` and `data/etl_validation_silver_to_gold_tests.csv` because business users drive most validations from here.
+8. `tests/fabric/test_csv_driven_bronze_to_silver_validation.py` and `tests/fabric/test_csv_driven_silver_to_gold_validation.py` because these are the thin wrappers that activate the framework.
+
+**What is the main architecture**
+This framework is a CSV-driven Fabric ETL validation framework built on `pytest`. The design is:
+
+- `config/master.properties` decides which Fabric layers and SQL endpoints to use.
+- `utils/fabric_client.py` creates authenticated connections to Fabric SQL endpoints.
+- `tests/fabric/base_csv_driven_fabric_validation.py` loads CSV rows, expands them into test cases, builds queries, executes them, and applies validations.
+- `utils/predefined_validations.py` contains the reusable comparison rules.
+- `pytest` runs the generated test cases.
+- `allure` labels and attachments make the reports readable.
+
+So if you need one sentence for the framework:
+“This is a metadata-driven ETL validation framework where test logic is generic, and the actual scenarios come from CSV plus reusable validation methods.”
+
+**Major files to focus on**
+These are the most important files:
+
+- `tests/fabric/base_csv_driven_fabric_validation.py`
+  This is the heart of the framework. Almost everything important happens here.
+- `utils/predefined_validations.py`
+  This is the rule engine for row count, schema, nulls, duplicate checks, record-level comparison, delta validation, and more.
+- `utils/fabric_client.py`
+  This handles Fabric authentication, connection reuse, query execution, retry/reconnect behavior.
+- `config/master.properties`
+  This controls tenant, auth method, and Bronze/Silver/Gold lakehouse endpoints.
+- `data/etl_validation_bronze_to_silver_tests.csv`
+  This is the main business-facing test definition file for Bronze to Silver.
+- `data/etl_validation_silver_to_gold_tests.csv`
+  Same pattern for Silver to Gold.
+- `tests/fabric/test_csv_driven_silver_to_gold_validation.py`
+  Thin class that just switches source/target layers.
+- `tests/fabric/test_csv_driven_bronze_to_silver_validation.py`
+  Thin entry point for Bronze to Silver.
+- `FABRIC_SETUP_GUIDE.md`
+  Good for explaining onboarding and execution.
+
+**Files that are useful but not the main path**
+These look more like older or hardcoded examples:
+
+- `tests/fabric/test_bronze_to_silver_validation.py`
+- `tests/fabric/test_bronze_to_silver_comprehensive.py`
+- `tests/fabric/test_bronze_to_silver_validation_predefined.py`
+- `tests/fabric/test_fabric_pipeline.py`
+- `runners/fabric_etl_runner.py`
+
+These are useful to show simple examples, but they are not the strongest “main framework” story. The main framework is the CSV-driven base class.
+
+**How to explain the core flow**
+Use this sequence:
+
+1. A CSV row defines a test scenario.
+2. The base class reads enabled rows only.
+3. It expands one row into many test cases if multiple lakehouses or tables are listed.
+4. It substitutes placeholders like `{source_lakehouse}` and `{table_name}` into queries.
+5. It chooses the correct Fabric client for source and target layers.
+6. It executes queries in the right order.
+7. It sends the results to a validation method.
+8. It builds Allure labels and attachments.
+9. `pytest` reports pass/fail per generated case.
+
+**Most important methods in the base class**
+In `tests/fabric/base_csv_driven_fabric_validation.py`, these are the methods to understand first:
+
+- `setup_class`
+  Initializes shared clients, validator, and test cases.
+- `_load_test_cases`
+  Reads CSV and keeps only enabled rows.
+- `_expand_lakehouse_test_cases`
+  Expands one CSV row into many concrete cases for multiple source/target lakehouses.
+- `_build_dynamic_queries`
+  Builds source and target SQL when the CSV gives metadata instead of full SQL.
+- `_build_query_variables`
+  Prepares placeholder values for query templates.
+- `_build_placeholder_execution_items`
+  Handles multi-table and dimension placeholder-driven execution.
+- `_execute_queries_with_dynamic_order`
+  Decides which query to run first, especially for recid-based validations.
+- `_execute_validation`
+  Main orchestration method for one test case.
+- `_run_validation`
+  Dispatches to the correct validation rule.
+- `pytest_generate_tests`
+  Dynamically creates pytest cases from CSV rows.
+- `test_csv_driven_validation`
+  Actual pytest test entry point.
+
+**Important validation methods**
+In `utils/predefined_validations.py`, these are the major reusable rules:
+
+- `row_count_comparison`
+- `column_count_validation`
+- `schema_and_datatype_validation`
+- `null_checks_mandatory_columns`
+- `duplicate_checks_primary_keys`
+- `soft_delete_consistency`
+- `aggregate_validations`
+- `record_level_dataframe_comparison`
+- `column_value_validation`
+- `incremental_delta_validation`
+- `referential_integrity_validation`
+- `threshold_based_validation`
+- `date_range_validation`
+- `negative_value_validation`
+- `empty_dataset_validation`
+- `group_by_distribution_validation`
+- `custom_column_comparison`
+
+If someone asks “what makes this framework powerful?”, the answer is:
+“The base class handles execution orchestration, and `PredefinedValidations` handles comparison logic.”
+
+**What feels like the newer/advanced parts of the framework**
+These are the more advanced capabilities in the current design:
+
+- Multi-lakehouse expansion from one CSV row.
+- Layer-aware syntax like `BRONZE[Lakehouse]`, `SILVER[Lakehouse]`, `GOLD[Lakehouse]`.
+- Placeholder-driven query generation using CSV values.
+- Dynamic query order for recid-based validations.
+- Metadata-driven duplicate checks using Excel metadata.
+- Per-test client selection instead of one fixed source/target.
+- Better reconnect/retry handling in `FabricClient`.
+
+These are the parts I would highlight as “enhanced framework capabilities.”
+
+**What to focus on when presenting the framework**
+If you’re explaining this to a manager, tester, or new engineer, focus on:
+
+- The framework is metadata-driven, not hardcoded.
+- Testers can add/disable scenarios in CSV without changing Python logic.
+- One base class supports Bronze->Silver and Silver->Gold.
+- Validation logic is centralized and reusable.
+- Fabric connectivity is abstracted into one client.
+- Reporting is already integrated through Allure.
+
+**What not to spend too much time on initially**
+Do not start with:
+
+- `utils/etl_loader.py`
+- API test files
+- SQLite/Postgres examples
+- older hardcoded Fabric sample tests
+- duplicate `Fabric_ETL/` folder unless your team actively uses that branch
+
+Those are secondary compared to the CSV-driven Fabric path.
+
+**Future scope and what new files you should create**
+This framework is ready to grow. The best future additions would be:
+
+- `tests/fabric/test_csv_driven_ax_to_bronze_validation.py`
+  For AX source to Bronze using the same base pattern.
+- `data/etl_validation_ax_to_bronze_tests.csv`
+  Business-driven AX to Bronze scenarios.
+- `utils/query_template_builder.py`
+  To move SQL generation out of the huge base class.
+- `utils/fabric_validation_dispatcher.py`
+  To separate validation routing from test execution.
+- `utils/metadata_repository.py`
+  To centralize Excel/metadata lookups.
+- `docs/FABRIC_FRAMEWORK_ARCHITECTURE.md`
+  A proper architecture explanation for onboarding.
+- `docs/ADDING_NEW_VALIDATION_TYPES.md`
+  A guide for extending `_run_validation`.
+- `tests/unit/test_predefined_validations.py`
+  Unit tests for reusable validation methods.
+- `tests/unit/test_base_csv_driven_fabric_validation.py`
+  Unit tests for CSV expansion, placeholder resolution, and query building.
+- `data/validation_templates/`
+  Reusable CSV starter files for new teams/domains.
+
+**Biggest improvement area**
+Right now `tests/fabric/base_csv_driven_fabric_validation.py` is doing too much. In future, it should be split into:
+
+- CSV loading
+- query building
+- execution strategy
+- validation dispatch
+- reporting helpers
+
+That would make the framework easier to maintain.
+
+**If you need a short summary for “Fabric main”**
+Use this:
+
+“The Fabric main framework starts with `config/master.properties`, connects through `utils/fabric_client.py`, reads business-driven scenarios from CSV, processes them in `tests/fabric/base_csv_driven_fabric_validation.py`, validates results through `utils/predefined_validations.py`, and runs everything through thin pytest wrapper classes for Bronze->Silver and Silver->Gold.”
+
+If you want, I can turn this into a proper project document like `docs/FABRIC_FRAMEWORK_EXPLANATION.md` inside the repo so you can share it directly.
+
+**If you want to add a new validation method**
+Add it in this order.
+
+1. `utils/predefined_validations.py`
+   Add the actual reusable validation method here. This is where the comparison logic should live.
+
+2. `tests/fabric/base_csv_driven_fabric_validation.py`
+   Update the validation dispatch logic so the new `validation_type` name from CSV is routed to the new method.
+   The main places to check are:
+   - `_run_validation`
+   - any helper methods that normalize or identify validation types
+   - any special-case query handling if your new validation needs only source, only target, or custom execution order
+
+3. `data/*.csv`
+   Add the new `validation_type` value in the relevant CSV rows.
+
+4. Optional runner changes
+   Usually you do not need to edit:
+   - `tests/fabric/test_csv_driven_bronze_to_silver_validation.py`
+   - `tests/fabric/test_csv_driven_silver_to_gold_validation.py`
+   
+   These are thin wrapper files. You only change them if you are creating a completely new flow with a different CSV file or different default source/target layers.
+
+5. Optional notebook copy
+   If your team also runs the notebook path, keep the duplicate Fabric notebook logic aligned:
+   - `Fabric_ETL/Notebook_files/predefined_validations.py`
+   - `Fabric_ETL/Notebook_files/fabric_notebook_runner.py`
+   - `Fabric_ETL/fabric_client.py`
+
+**How to think about new validation changes**
+Use this split:
+
+- Put comparison logic in `utils/predefined_validations.py`
+- Put framework orchestration and CSV routing in `tests/fabric/base_csv_driven_fabric_validation.py`
+- Put scenario data in CSV
+
+That keeps the framework maintainable.
+
+**If you want to add a new CSV file**
+There are two common cases.
+
+**Case 1: same existing flow, just another CSV**
+If you want a new CSV for a different set of tests in the same flow, create:
+
+- `data/your_new_csv_file.csv`
+
+Then create or update a thin pytest wrapper file in `tests/fabric/` that points to that CSV.
+
+Example:
+
+- `tests/fabric/test_csv_driven_silver_to_gold_validation.py`
+- `tests/fabric/test_csv_driven_bronze_to_silver_validation.py`
+
+These wrapper files mainly control:
+
+- `CSV_FILE`
+- `SOURCE_LAYER`
+- `TARGET_LAYER`
+
+So if you add a new CSV, the usual change is:
+
+- create a new wrapper file or copy an existing one
+- change only the class attributes
+
+For example, the wrapper normally looks like:
+
+- `CSV_FILE = "data/your_new_csv_file.csv"`
+- `SOURCE_LAYER = "SILVER"`
+- `TARGET_LAYER = "GOLD"`
+
+**Case 2: completely new layer flow**
+If you want a new path such as AX -> Bronze or another custom Fabric flow, then edit or create:
+
+1. `data/your_new_flow_tests.csv`
+2. `tests/fabric/test_csv_driven_your_new_flow_validation.py`
+3. `config/master.properties` only if the new flow needs new endpoints or layer configuration
+4. `tests/fabric/base_csv_driven_fabric_validation.py` only if the new flow needs new orchestration behavior beyond just changing layers
+
+**Minimum files to edit for a new CSV file**
+In most cases, only these are needed:
+
+1. `data/new_file.csv`
+2. one wrapper file under `tests/fabric/`
+
+Usually no change is needed in:
+
+- `utils/predefined_validations.py`
+- `utils/fabric_client.py`
+- `tests/fabric/base_csv_driven_fabric_validation.py`
+
+unless the new CSV introduces a new validation type or new execution behavior.
+
+**Quick checklist for adding a new CSV**
+
+1. Create the CSV with the same header structure as an existing working file.
+2. Add test rows with `enabled = TRUE` only for the cases you want active.
+3. Create or update a wrapper test file in `tests/fabric/`.
+4. Set:
+   - `CSV_FILE`
+   - `SOURCE_LAYER`
+   - `TARGET_LAYER`
+5. Run pytest against that wrapper file.
+
+**Quick checklist for adding a new validation**
+
+1. Add method in `utils/predefined_validations.py`
+2. Route it from `tests/fabric/base_csv_driven_fabric_validation.py`
+3. Add `validation_type` in CSV
+4. Run one focused test row first
+5. Then run the full wrapper file

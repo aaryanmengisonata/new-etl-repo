@@ -5,6 +5,7 @@ import pyodbc
 import struct
 import configparser
 from pathlib import Path
+from typing import Optional
 from azure.identity import ClientSecretCredential, InteractiveBrowserCredential
 
 try:
@@ -165,18 +166,82 @@ class FabricClient:
 
         return self.connection
 
+    def _ensure_connection(self):
+        """Ensure an active connection exists."""
+        if self.connection is None:
+            return self.connect()
+        return self.connection
+
+    def _reconnect(self):
+        """Force reconnection for stale/broken sessions."""
+        self.close()
+        return self.connect()
+
+    @staticmethod
+    def _is_transient_pyodbc_error(exc: pyodbc.Error) -> bool:
+        """Best-effort detection for stale or transient Fabric/ODBC failures."""
+        message = " ".join(str(arg) for arg in getattr(exc, "args", ()) if arg).lower()
+        transient_markers = (
+            "communication link failure",
+            "connection is busy",
+            "connection was not open",
+            "connection is closed",
+            "closed connection",
+            "08s01",
+            "08003",
+            "08001",
+            "hyt00",
+            "hyt01",
+            "timeout expired",
+            "login timeout expired",
+            "transport-level error",
+            "network-related",
+            "server has gone away",
+            "semaphore timeout period has expired",
+            "connection reset",
+            "session",
+        )
+        return any(marker in message for marker in transient_markers)
+
+    def _run_query_once(self, query: str):
+        """Execute one query attempt and always close the cursor."""
+        connection = self._ensure_connection()
+        cursor: Optional[pyodbc.Cursor] = None
+        try:
+            cursor = connection.cursor()
+            cursor.execute(query)
+            while cursor.description is None:
+                if not cursor.nextset():
+                    return []
+
+            columns = [col[0] for col in cursor.description]
+            rows = cursor.fetchall()
+            return [dict(zip(columns, row)) for row in rows]
+        finally:
+            if cursor is not None:
+                cursor.close()
+
     def execute_query(self, query):
-        """Execute SQL query and return results"""
-        if not self.connection:
-            self.connect()
-
-        cursor = self.connection.cursor()
-        cursor.execute(query)
-
-        columns = [col[0] for col in cursor.description]
-        rows = cursor.fetchall()
-
-        return [dict(zip(columns, row)) for row in rows]
+        """Execute SQL query and return results."""
+        try:
+            return self._run_query_once(query)
+        except pyodbc.Error as exc:
+            if self._is_transient_pyodbc_error(exc):
+                self._reconnect()
+                try:
+                    print(
+                        f"[FabricClient:{self.layer}] transient query error detected; "
+                        "reconnecting and retrying once."
+                    )
+                    return self._run_query_once(query)
+                except pyodbc.Error as retry_exc:
+                    raise RuntimeError(
+                        f"{self.layer} query failed after reconnect retry: "
+                        f"{retry_exc.__class__.__name__}: {retry_exc}"
+                    ) from retry_exc
+            raise RuntimeError(
+                f"{self.layer} query failed: {exc.__class__.__name__}: {exc}"
+            ) from exc
 
     def close(self):
         """Close database connection"""

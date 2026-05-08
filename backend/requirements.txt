@@ -36,6 +36,8 @@ rpds-py==0.30.0
 # Configuration Management
 python-dotenv==1.2.1
 PyYAML==6.0.3
+fastapi==0.116.1
+uvicorn==0.35.0
 
 # Core Dependencies
 attrs==25.4.0

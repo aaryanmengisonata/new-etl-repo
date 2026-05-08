@@ -157,8 +157,9 @@ class FabricClient:
         try:
             cursor = connection.cursor()
             cursor.execute(query)
-            if cursor.description is None:
-                return []
+            while cursor.description is None:
+                if not cursor.nextset():
+                    return []
 
             columns = [col[0] for col in cursor.description]
             rows = cursor.fetchall()
