@@ -465,6 +465,14 @@ class PredefinedValidations:
                 f"target={target_row_count}."
             )
 
+        if source_row_count == 0 and target_row_count == 0:
+            return {
+                "row_count": 0,
+                "validated_columns": list(compare_columns or []),
+                "mismatch_count": 0,
+                "sample_mismatches": [],
+            }
+
         if compare_columns is None:
             if len(source_df.columns) == 1 and len(target_df.columns) == 1:
                 source_compare_columns = [str(source_df.columns[0])]
