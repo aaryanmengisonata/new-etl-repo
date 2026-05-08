@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  @apply bg-white text-slate-800 transition-colors duration-500;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark body {
+  @apply bg-slate-950 text-slate-200;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+
+/* Premium Footer Styles */
+.footer {
+  width: 100%;
+  background-color: #ffffff;
+  border-top: 1px solid #e5e7eb; 
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Dark mode adjust for footer */
+.dark .footer {
+  background-color: #0f172a;
+  border-top: 1px solid #1e293b;
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.footer__container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (min-width: 640px) {
+  .footer__container {
+    flex-direction: row;
+  }
+}
+
+.footer__left {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.dark .footer__left {
+  color: #94a3b8;
+}
+
+@media (min-width: 640px) {
+  .footer__left {
+    margin-bottom: 0;
+  }
+}
+
+.footer__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer__logo {
+  height: 32px;
+  object-fit: contain;
+}
+
+.footer__powered {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.dark .footer__powered {
+  color: #94a3b8;
+}
+
+.app-header-footer {
+  @apply bg-white border-gray-200;
+}
+
+.dark .app-header-footer {
+  @apply bg-slate-900 border-slate-800;
+}
+
