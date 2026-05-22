@@ -10,3 +10,7 @@ class TestCaseSummary(BaseModel):
     description: str
     source_file: str
     dataset: str
+
+    model_config = {
+        "from_attributes": True
+    }

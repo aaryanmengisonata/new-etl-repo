@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAppContext } from '../store/AppContext'
+import { api } from '../services/api'
 import {
    Play, Settings, Send,
    FileText, ChevronRight,
@@ -27,7 +28,8 @@ export default function FabricAudit({ setActivePage, setNavParams, featureState,
       gridColumns, gridData, gridSourceFile,
       updateGridCell, addGridRow, deleteGridRow,
       addGridColumn, deleteGridColumn,
-      toggleExecution, handleFileUpload
+      toggleExecution, handleFileUpload,
+      showAlert, setCustomAlert
    } = useAppContext()
 
    // Query Mode State
@@ -53,18 +55,13 @@ export default function FabricAudit({ setActivePage, setNavParams, featureState,
    const currentMode = (!featureState || featureState === 'intro') ? 'intro' : featureState
 
    // --- LLM LOGIC ---
-   const handleGenerateQuery = () => {
+   const handleGenerateQuery = async () => {
       if (!prompt.trim()) return
       setIsLlmLoading(true)
 
-      // Simulate LLM delay
-      setTimeout(() => {
-         let result = ""
-         if (!queryBuffer.trim()) {
-            result = `-- Generated SQL for: ${prompt}\nSELECT \n  source.id, \n  source.value, \n  target.value \nFROM fabric.bronze_layer AS source\nJOIN fabric.silver_layer AS target ON source.id = target.id\nWHERE source.is_active = 1;`
-         } else {
-            result = `-- Improved Query based on: ${prompt}\n${queryBuffer}\n-- Optimization: Added index hint and schema mapping for Fabric Lakehouse.`
-         }
+      try {
+         const data = await api.generateQuery(prompt, queryBuffer)
+         const result = data.query
          
          setQueryBuffer(result)
          setIsLlmLoading(false)
@@ -77,7 +74,11 @@ export default function FabricAudit({ setActivePage, setNavParams, featureState,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })
          };
          setHistory(prev => [newItem, ...prev].slice(0, 20));
-      }, 1500)
+      } catch (error) {
+         console.error("Query generation failed:", error)
+         showAlert("Generation Failed", "Failed to generate query. Please check if the backend is running.", "error")
+         setIsLlmLoading(false)
+      }
    }
 
    const handleRestoreHistory = (item) => {
@@ -91,9 +92,12 @@ export default function FabricAudit({ setActivePage, setNavParams, featureState,
    };
 
    const handleClearHistory = () => {
-      if (window.confirm('Are you sure you want to clear all history?')) {
-         setHistory([]);
-      }
+      showAlert(
+         "Clear History",
+         "Are you sure you want to clear all query history? This action cannot be undone.",
+         "confirm",
+         () => setHistory([])
+      );
    };
 
 
@@ -224,15 +228,15 @@ export default function FabricAudit({ setActivePage, setNavParams, featureState,
                   <OutputPanel 
                      query={queryBuffer} 
                      setQuery={setQueryBuffer}
-                     onExplain={() => alert('AI Explanation:\nThis query joins the Bronze and Silver medallion layers on ID to identify record discrepancies.')} 
-                     onRefine={() => alert('Opening AI Refinement Dialog...')} 
+                     onExplain={() => showAlert('AI Explanation', 'This query joins the Bronze and Silver medallion layers on ID to identify record discrepancies.', 'info')} 
+                     onRefine={() => showAlert('AI Refinement Workspace', 'Opening AI Refinement Dialog...', 'info')} 
                      onRun={() => {
                         setFeatureState('execution')
                         toggleExecution()
                      }} 
-                     onFormat={() => alert('Code formatted successfully!')}
+                     onFormat={() => showAlert('Success', 'Code formatted successfully!', 'success')}
                      onOpenHistory={() => setIsHistoryOpen(true)}
-                     onLogs={() => alert('No active logic execution logs found. Please run the query first.')}
+                     onLogs={() => showAlert('System Logs', 'No active logic execution logs found. Please run the query first.', 'info')}
                   />
                </div>
             </div>

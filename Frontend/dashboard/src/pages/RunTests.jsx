@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { 
-  Play, Square, GitBranch, Globe, Database, Zap, 
+import {
+  Play, Square, GitBranch, Globe, Database, Zap,
   Box, Activity, Loader2, Server, Command
 } from 'lucide-react'
 import Terminal from '../components/shared/Terminal'
@@ -36,8 +36,8 @@ export default function RunTests() {
     const url = selectedSuite ? `http://localhost:8000/stream-logs/${selectedEngine}?suite=${selectedSuite}` : `http://localhost:8000/stream-logs/${selectedEngine}`
     const ev = new EventSource(url)
     ev.addEventListener('log', (e) => setLogs(prev => [...prev, JSON.parse(e.data).msg]))
-    ev.addEventListener('done', (e) => { 
-      setLogs(prev => [...prev, `[SYSTEM] Execution finished.`]); setRunning(false); ev.close() 
+    ev.addEventListener('done', (e) => {
+      setLogs(prev => [...prev, `[SYSTEM] Execution finished.`]); setRunning(false); ev.close()
     })
     ev.onerror = () => { setRunning(false); ev.close() }
   }
@@ -56,10 +56,10 @@ export default function RunTests() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <ConfigPanel 
-          selectedEngine={selectedEngine} suites={suites} selectedSuite={selectedSuite} 
-          setSelectedSuite={setSelectedSuite} running={running} onStart={startExecution} 
-          onStop={stopExecution} 
+        <ConfigPanel
+          selectedEngine={selectedEngine} suites={suites} selectedSuite={selectedSuite}
+          setSelectedSuite={setSelectedSuite} running={running} onStart={startExecution}
+          onStop={stopExecution}
         />
         <StatusPanel running={running} />
       </div>
@@ -72,13 +72,12 @@ export default function RunTests() {
 function EngineCard({ engine, active, onSelect }) {
   const Icon = engine.icon
   return (
-    <button 
-      onClick={() => onSelect(engine.id)} 
-      className={`text-left p-6 rounded-2xl border transition-all duration-300 ${
-        active 
-          ? 'bg-blue-600 border-blue-500 shadow-xl shadow-blue-500/20 text-white' 
-          : 'bg-white border-slate-200 text-slate-600 hover:border-blue-400 hover:bg-slate-50'
-      }`}
+    <button
+      onClick={() => onSelect(engine.id)}
+      className={`text-left p-6 rounded-2xl border transition-all duration-300 ${active
+        ? 'bg-blue-600 border-blue-500 shadow-xl shadow-blue-500/20 text-white'
+        : 'bg-white border-slate-200 text-slate-600 hover:border-blue-400 hover:bg-slate-50'
+        }`}
     >
       <div className={`w-10 h-10 rounded-xl mb-4 flex items-center justify-center ${active ? 'bg-white/20' : 'bg-slate-100'}`}>
         <Icon size={20} className={active ? 'text-white' : 'text-slate-500'} />
@@ -92,13 +91,13 @@ function EngineCard({ engine, active, onSelect }) {
 function ConfigPanel({ selectedEngine, suites, selectedSuite, setSelectedSuite, running, onStart, onStop }) {
   if (!selectedEngine) return (
     <div className="lg:col-span-2 border border-slate-200 rounded-[2rem] bg-white p-12 flex flex-col items-center justify-center text-center space-y-4 shadow-xl shadow-slate-200/50">
-       <div className="w-16 h-16 rounded-3xl bg-slate-50 flex items-center justify-center text-slate-200 border border-slate-100">
-         <Command size={32} />
-       </div>
-       <div className="space-y-1">
-         <p className="text-xs font-black uppercase tracking-widest text-slate-900">Config Protocol Locked</p>
-         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Initialize an engine to begin deployment</p>
-       </div>
+      <div className="w-16 h-16 rounded-3xl bg-slate-50 flex items-center justify-center text-slate-200 border border-slate-100">
+        <Command size={32} />
+      </div>
+      <div className="space-y-1">
+        <p className="text-xs font-black uppercase tracking-widest text-slate-900">Config Protocol Locked</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Initialize an engine to begin deployment</p>
+      </div>
     </div>
   )
   return (
@@ -120,27 +119,26 @@ function ConfigPanel({ selectedEngine, suites, selectedSuite, setSelectedSuite, 
         </div>
 
         <div className="pt-8 border-t border-slate-50 flex items-center justify-between">
-           <div className="flex items-center gap-4">
-              <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
-                <Server size={14} />
-              </div>
-              <div>
-                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Target Object</p>
-                <p className="text-xs font-bold text-slate-900">{selectedSuite || 'Full Structural Audit'}</p>
-              </div>
-           </div>
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400">
+              <Server size={14} />
+            </div>
+            <div>
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Target Object</p>
+              <p className="text-xs font-bold text-slate-900">{selectedSuite || 'Full Structural Audit'}</p>
+            </div>
+          </div>
 
-           <button 
-             onClick={running ? onStop : onStart} 
-             className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 flex items-center gap-3 shadow-xl ${
-               running 
-                 ? 'bg-rose-600 text-white shadow-rose-500/20 animate-pulse' 
-                 : 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-700'
-             }`}
-           >
-             {running ? <Square size={14} fill="white" /> : <Play size={14} fill="white" />}
-             {running ? 'Halt Protocol' : 'Deploy Engine'}
-           </button>
+          <button
+            onClick={running ? onStop : onStart}
+            className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 flex items-center gap-3 shadow-xl ${running
+              ? 'bg-rose-600 text-white shadow-rose-500/20 animate-pulse'
+              : 'bg-emerald-600 text-white shadow-emerald-500/20 hover:bg-emerald-700'
+              }`}
+          >
+            {running ? <Square size={14} fill="white" /> : <Play size={14} fill="white" />}
+            {running ? 'Halt Protocol' : 'Deploy Engine'}
+          </button>
         </div>
       </div>
     </div>
@@ -149,13 +147,12 @@ function ConfigPanel({ selectedEngine, suites, selectedSuite, setSelectedSuite, 
 
 function SuiteBtn({ label, active, onClick }) {
   return (
-    <button 
-      onClick={onClick} 
-      className={`px-4 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
-        active 
-          ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/10' 
-          : 'bg-white border-slate-200 text-slate-400 hover:border-blue-300 hover:text-blue-600'
-      }`}
+    <button
+      onClick={onClick}
+      className={`px-4 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${active
+        ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/10'
+        : 'bg-white border-slate-200 text-slate-400 hover:border-blue-300 hover:text-blue-600'
+        }`}
     >
       {label}
     </button>

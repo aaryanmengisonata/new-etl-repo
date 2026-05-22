@@ -60,3 +60,6 @@ Pygments==2.19.2
 
 # Optional: Data Generation
 # faker==19.6.2
+
+# Database ORM
+SQLAlchemy>=2.0.0

@@ -5,7 +5,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 class ApiService {
   async request(endpoint, options = {}) {
     const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
-    
+
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -23,7 +23,7 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      
+
       // Handle non-JSON responses gracefully
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.indexOf("application/json") !== -1) {
@@ -43,16 +43,16 @@ class ApiService {
   }
 
   post(endpoint, data) {
-    return this.request(endpoint, { 
-      method: 'POST', 
-      body: data instanceof FormData ? data : JSON.stringify(data) 
+    return this.request(endpoint, {
+      method: 'POST',
+      body: data instanceof FormData ? data : JSON.stringify(data)
     });
   }
 
   put(endpoint, data) {
-    return this.request(endpoint, { 
-      method: 'PUT', 
-      body: JSON.stringify(data) 
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(data)
     });
   }
 
@@ -76,6 +76,29 @@ class ApiService {
   getDatasetPreview(dataset, limit = 50) {
     const params = new URLSearchParams({ dataset, limit: String(limit) });
     return this.get(`/api/dataset-preview?${params.toString()}`);
+  }
+
+  createTestCase(dataset, data) {
+    const params = new URLSearchParams({ dataset });
+    return this.post(`/api/test-cases?${params.toString()}`, data);
+  }
+
+  updateTestCase(dataset, testId, data) {
+    const params = new URLSearchParams({ dataset });
+    return this.put(`/api/test-cases/${testId}?${params.toString()}`, data);
+  }
+
+  deleteTestCase(dataset, testId) {
+    const params = new URLSearchParams({ dataset });
+    return this.delete(`/api/test-cases/${testId}?${params.toString()}`);
+  }
+
+  generateQuery(prompt, context = '') {
+    return this.post('/api/generate-query', { prompt, context });
+  }
+
+  executeAudit(dataset, query = null) {
+    return this.post('/api/execute', { dataset, query });
   }
 }
 

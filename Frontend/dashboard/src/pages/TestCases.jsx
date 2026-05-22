@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { 
-  Plus, Edit2, Trash2, Search, Filter, Play, Save, X, 
-  Database, Upload, Download, FileText, Eye, CheckCircle, 
+import {
+  Plus, Edit2, Trash2, Search, Filter, Play, Save, X,
+  Database, Upload, Download, FileText, Eye, CheckCircle,
   AlertTriangle, Loader2, List, FileSpreadsheet, RefreshCw, ChevronRight, Layers, Shield, Monitor
 } from 'lucide-react'
 import { api } from '../services/api'
 import { useAppContext } from '../store/AppContext'
 
 export default function TestCases() {
-  const { selectedDataset } = useAppContext()
+  const { selectedDataset, showAlert } = useAppContext()
   const [testCases, setTestCases] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -17,7 +17,7 @@ export default function TestCases() {
   const [selectedPreview, setSelectedPreview] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const fileInputRef = useRef(null)
-  
+
   const [formData, setFormData] = useState({
     functionality: '',
     test_id: '',
@@ -69,31 +69,35 @@ export default function TestCases() {
   const handleSave = async (e) => {
     e.preventDefault()
     try {
-      const url = editingId 
-        ? `http://localhost:8000/api/test-cases/${editingId}`
-        : 'http://localhost:8000/api/test-cases'
-      
-      await fetch(url, {
-        method: editingId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-      })
+      if (editingId) {
+        await api.updateTestCase(selectedDataset, editingId, formData)
+      } else {
+        await api.createTestCase(selectedDataset, formData)
+      }
       fetchTestCases()
       setIsModalOpen(false)
     } catch (err) {
       console.error("Failed to save:", err)
+      showAlert("Save Failed", "Failed to save test case. Please review the inputs and try again.", "error")
     }
   }
 
   const handleDelete = async (test_id) => {
-    if (confirm(`Are you sure you want to delete test case ${test_id}?`)) {
-      try {
-        await fetch(`http://localhost:8000/api/test-cases/${test_id}`, { method: 'DELETE' })
-        fetchTestCases()
-      } catch (err) {
-        console.error("Failed to delete:", err)
+    showAlert(
+      "Delete Test Case",
+      `Are you sure you want to delete test case ${test_id}? This action cannot be undone.`,
+      "confirm",
+      async () => {
+        try {
+          await api.deleteTestCase(selectedDataset, test_id)
+          fetchTestCases()
+          showAlert("Deleted", `Test case ${test_id} has been deleted.`, "success")
+        } catch (err) {
+          console.error("Failed to delete:", err)
+          showAlert("Delete Failed", "Failed to delete test case.", "error")
+        }
       }
-    }
+    )
   }
 
   const handleFileUpload = async (e) => {
@@ -110,7 +114,7 @@ export default function TestCases() {
         body: formDataUpload
       })
       if (res.ok) {
-        alert("Bulk upload successful!")
+        showAlert("Success", "Bulk test cases uploaded successfully!", "success")
         fetchTestCases()
       }
     } catch (err) {
@@ -123,8 +127,8 @@ export default function TestCases() {
   const downloadTemplate = () => { window.location.href = 'http://localhost:8000/api/test-cases/template' }
   const downloadCurrentCSV = () => { window.location.href = 'http://localhost:8000/api/test-cases/download' }
 
-  const filteredTests = testCases.filter(t => 
-    t.test_id?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredTests = testCases.filter(t =>
+    t.test_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.functionality?.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -140,20 +144,20 @@ export default function TestCases() {
     <div className="space-y-6 max-w-7xl animate-in fade-in slide-in-from-top-4 duration-500 text-left">
       {/* Top Banner */}
       <div className="p-8 border border-slate-200 rounded-[2.5rem] relative overflow-hidden bg-white shadow-xl shadow-slate-200/50">
-         <div className="relative z-10 space-y-4">
-            <div className="flex items-center gap-2 text-blue-600 font-black text-[9px] uppercase tracking-[0.3em]">
-               <FileSpreadsheet size={14} /> Repository Active
-            </div>
-            <div className="space-y-1">
-              <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">Test Cases</h1>
-              <p className="text-xs font-bold text-slate-400 max-w-xl">
-                 Manage Data validation mappings, source-to-target reconciliation logic, and metadata quality rules within a unified framework.
-              </p>
-            </div>
-         </div>
-         <div className="absolute right-0 top-0 w-64 h-full flex items-center justify-center opacity-[0.03] pointer-events-none">
-            <Monitor size={120} className="rotate-12 text-slate-900" />
-         </div>
+        <div className="relative z-10 space-y-4">
+          <div className="flex items-center gap-2 text-blue-600 font-black text-[9px] uppercase tracking-[0.3em]">
+            <FileSpreadsheet size={14} /> Repository Active
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-black uppercase tracking-tight text-slate-900">Test Cases</h1>
+            <p className="text-xs font-bold text-slate-400 max-w-xl">
+              Manage Data validation mappings, source-to-target reconciliation logic, and metadata quality rules within a unified framework.
+            </p>
+          </div>
+        </div>
+        <div className="absolute right-0 top-0 w-64 h-full flex items-center justify-center opacity-[0.03] pointer-events-none">
+          <Monitor size={120} className="rotate-12 text-slate-900" />
+        </div>
       </div>
 
       {/* Action Bar */}
@@ -180,7 +184,7 @@ export default function TestCases() {
             <FileText size={14} /> Template
           </button>
           <div className="w-px h-6 bg-slate-100 mx-1" />
-          <button 
+          <button
             onClick={() => openModal()}
             className="flex items-center gap-3 bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-xl shadow-blue-500/20"
           >
@@ -216,10 +220,10 @@ export default function TestCases() {
                 </td>
                 <td className="px-8 py-5 text-xs font-bold text-slate-500 truncate max-w-xs">{t.description}</td>
                 <td className="px-8 py-5">
-                   <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-md border border-indigo-100 bg-indigo-50 text-[10px] font-black text-indigo-600 uppercase tracking-tighter">{t.expected_condition}</span>
-                      <span className="text-[10px] font-bold text-slate-300">#{t.sql_id}</span>
-                   </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md border border-indigo-100 bg-indigo-50 text-[10px] font-black text-indigo-600 uppercase tracking-tighter">{t.expected_condition}</span>
+                    <span className="text-[10px] font-bold text-slate-300">#{t.sql_id}</span>
+                  </div>
                 </td>
                 <td className="px-8 py-5 text-right">
                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -245,7 +249,7 @@ export default function TestCases() {
               </h3>
               <button onClick={() => setIsModalOpen(false)} className="p-2 rounded-full hover:bg-slate-200 text-slate-400 transition-colors"><X size={20} /></button>
             </div>
-            
+
             <form onSubmit={handleSave} className="p-10 space-y-6">
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -257,7 +261,7 @@ export default function TestCases() {
                   <input required name="functionality" value={formData.functionality} onChange={handleInputChange} className="w-full border border-slate-100 bg-slate-50 rounded-2xl px-5 py-4 text-xs font-black text-slate-900 focus:bg-white focus:ring-1 focus:ring-blue-500/20 outline-none transition-all" />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Descriptor</label>
                 <textarea required name="description" value={formData.description} onChange={handleInputChange} className="w-full border border-slate-100 bg-slate-50 rounded-2xl px-5 py-4 text-xs font-black text-slate-900 h-24 resize-none focus:bg-white focus:ring-1 focus:ring-blue-500/20 outline-none transition-all" />
@@ -293,49 +297,49 @@ export default function TestCases() {
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-500" onClick={() => setIsPreviewOpen(false)} />
           <div className="relative w-full max-w-lg bg-white shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-500 flex flex-col border-l border-slate-100">
             <div className="px-10 py-8 border-b border-slate-50 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur-md z-10">
-               <div>
-                  <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.3em] mb-2">Metadata Spectrum</p>
-                  <h3 className="text-xl font-black uppercase tracking-tight text-slate-900">{selectedPreview.test_id}</h3>
-               </div>
-               <button onClick={() => setIsPreviewOpen(false)} className="p-3 rounded-full hover:bg-slate-100 text-slate-400 transition-colors"><X size={20} /></button>
+              <div>
+                <p className="text-[9px] font-black text-blue-600 uppercase tracking-[0.3em] mb-2">Metadata Spectrum</p>
+                <h3 className="text-xl font-black uppercase tracking-tight text-slate-900">{selectedPreview.test_id}</h3>
+              </div>
+              <button onClick={() => setIsPreviewOpen(false)} className="p-3 rounded-full hover:bg-slate-100 text-slate-400 transition-colors"><X size={20} /></button>
             </div>
-            
+
             <div className="p-10 space-y-12">
-               <div className="space-y-6">
-                  <div className="flex items-center gap-3 text-slate-900">
-                     <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500"><Layers size={16} /></div>
-                     <h4 className="text-xs font-black uppercase tracking-widest">Architectural Mapping</h4>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                     <SummaryItem label="Identifier" val={selectedPreview.test_id} />
-                     <SummaryItem label="Functional Unit" val={selectedPreview.functionality} />
-                     <SummaryItem label="Validation Clause" val={selectedPreview.expected_condition} />
-                     <SummaryItem label="Reference ID" val={`SQL_GATEWAY_${selectedPreview.sql_id}`} />
-                  </div>
-               </div>
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 text-slate-900">
+                  <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500"><Layers size={16} /></div>
+                  <h4 className="text-xs font-black uppercase tracking-widest">Architectural Mapping</h4>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <SummaryItem label="Identifier" val={selectedPreview.test_id} />
+                  <SummaryItem label="Functional Unit" val={selectedPreview.functionality} />
+                  <SummaryItem label="Validation Clause" val={selectedPreview.expected_condition} />
+                  <SummaryItem label="Reference ID" val={`SQL_GATEWAY_${selectedPreview.sql_id}`} />
+                </div>
+              </div>
 
-               <div className="space-y-6">
-                  <div className="flex items-center gap-3 text-slate-900">
-                     <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500"><FileText size={16} /></div>
-                     <h4 className="text-xs font-black uppercase tracking-widest">Narrative Descriptor</h4>
-                  </div>
-                  <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 relative">
-                     <p className="text-xs leading-relaxed italic font-bold text-slate-700 relative z-10">
-                       "{selectedPreview.description}"
-                    </p>
-                    <div className="absolute top-4 right-6 text-slate-200 select-none"><Shield size={40} /></div>
-                  </div>
-               </div>
-
-               <div className="p-8 rounded-[2rem] bg-indigo-600 text-white shadow-2xl shadow-indigo-500/20 flex flex-col gap-4">
-                  <div className="flex items-center gap-4">
-                    <ShieldCheck size={24} className="opacity-50" />
-                    <h5 className="text-xs font-black uppercase tracking-widest">Integrity Assurance</h5>
-                  </div>
-                  <p className="text-[11px] font-bold leading-relaxed opacity-80 uppercase tracking-tight">
-                    This definition is correctly mapped to the master transformation layer. Deployment will trigger a targeted audit of all associated relational table objects.
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 text-slate-900">
+                  <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500"><FileText size={16} /></div>
+                  <h4 className="text-xs font-black uppercase tracking-widest">Narrative Descriptor</h4>
+                </div>
+                <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 relative">
+                  <p className="text-xs leading-relaxed italic font-bold text-slate-700 relative z-10">
+                    "{selectedPreview.description}"
                   </p>
-               </div>
+                  <div className="absolute top-4 right-6 text-slate-200 select-none"><Shield size={40} /></div>
+                </div>
+              </div>
+
+              <div className="p-8 rounded-[2rem] bg-indigo-600 text-white shadow-2xl shadow-indigo-500/20 flex flex-col gap-4">
+                <div className="flex items-center gap-4">
+                  <ShieldCheck size={24} className="opacity-50" />
+                  <h5 className="text-xs font-black uppercase tracking-widest">Integrity Assurance</h5>
+                </div>
+                <p className="text-[11px] font-bold leading-relaxed opacity-80 uppercase tracking-tight">
+                  This definition is correctly mapped to the master transformation layer. Deployment will trigger a targeted audit of all associated relational table objects.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -351,8 +355,8 @@ function ShieldCheck({ size, className }) {
 function SummaryItem({ label, val }) {
   return (
     <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 shadow-sm flex flex-col gap-1">
-       <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</span>
-       <span className="text-xs font-black uppercase tracking-tight text-slate-900 truncate">{val}</span>
+      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</span>
+      <span className="text-xs font-black uppercase tracking-tight text-slate-900 truncate">{val}</span>
     </div>
   )
 }

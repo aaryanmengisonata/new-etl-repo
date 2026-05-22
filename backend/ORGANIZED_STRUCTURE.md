@@ -17,7 +17,7 @@ ETL_testing/
 ├── 📁 docs/                      # Documentation
 │   ├── EXCEL_USAGE_GUIDE.md     # Excel usage guide
 │   ├── MISSING_FEATURES_ADDED.md # Features documentation
-│   └── details.txt              # Framework details
+│   └──               # Framework details
 │
 ├── 📁 examples/                  # Example files
 │   ├── simple_etl_test.py       # Simple ETL example

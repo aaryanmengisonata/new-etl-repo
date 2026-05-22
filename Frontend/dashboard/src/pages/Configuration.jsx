@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useAppContext } from '../store/AppContext'
 import {
   Loader2, CheckCircle, CloudUpload, ChevronLeft, ChevronDown
 } from 'lucide-react'
@@ -64,6 +65,7 @@ const mergeConfigs = (incoming = {}) => {
 }
 
 export default function Configuration({ navParams, setActivePage, setFeatureState }) {
+  const { showAlert } = useAppContext()
   const [config, setConfig] = useState({ ...defaultConfig, FABRIC_CONFIGS: cloneConfigs() })
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
@@ -101,7 +103,7 @@ export default function Configuration({ navParams, setActivePage, setFeatureStat
       }, 1500)
     } catch (err) {
       console.error("Failed to save config:", err)
-      alert("Failed to save configuration.")
+      showAlert("Configuration Error", "Failed to save configuration. Please check if backend is running.", "error")
     } finally {
       setSaving(false)
     }
@@ -162,7 +164,7 @@ export default function Configuration({ navParams, setActivePage, setFeatureStat
             content.split('\n').map(l => l.split('=')).filter(p => p.length === 2).map(([k, v]) => [k.trim().toUpperCase(), v.trim()])
           )
         setConfig(mapImportedConfig(imported))
-      } catch (err) { alert("Invalid file") }
+      } catch (err) { showAlert("Import Failed", "The uploaded properties file is invalid or corrupted.", "error") }
     }
     reader.readAsText(file)
   }

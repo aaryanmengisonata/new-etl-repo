@@ -55,12 +55,12 @@ export default function Logs() {
             <p className="text-xs font-medium uppercase tracking-tighter text-slate-400">Historical Event Stream</p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-4">
           <div className="relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-20 group-focus-within:opacity-100 transition-opacity" size={14} />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search logs..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -73,11 +73,10 @@ export default function Logs() {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${
-                  filter === f 
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
+                className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${filter === f
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
                     : 'text-slate-400 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 {f}
               </button>
@@ -94,26 +93,25 @@ export default function Logs() {
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Framework persistent buffer</span>
           </div>
           <div className="flex items-center gap-4">
-             <button 
-                onClick={() => setPaused(!paused)}
-                className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
-                  paused ? 'text-emerald-600' : 'text-slate-500 hover:text-blue-600'
+            <button
+              onClick={() => setPaused(!paused)}
+              className={`flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-colors ${paused ? 'text-emerald-600' : 'text-slate-500 hover:text-blue-600'
                 }`}
-             >
-                {paused ? <Play size={12} /> : <Pause size={12} />}
-                {paused ? 'Resume Stream' : 'Pause Stream'}
-             </button>
-             <div className="w-px h-4 bg-slate-200" />
-             <button 
-                onClick={() => { setLogs([]); fetchLogs(); }}
-                className="text-slate-400 hover:text-rose-600 transition-colors"
-                title="Clear Logs"
-             >
-                <Trash2 size={14} />
-             </button>
+            >
+              {paused ? <Play size={12} /> : <Pause size={12} />}
+              {paused ? 'Resume Stream' : 'Pause Stream'}
+            </button>
+            <div className="w-px h-4 bg-slate-200" />
+            <button
+              onClick={() => { setLogs([]); fetchLogs(); }}
+              className="text-slate-400 hover:text-rose-600 transition-colors"
+              title="Clear Logs"
+            >
+              <Trash2 size={14} />
+            </button>
           </div>
         </div>
-        
+
         <div className="p-6 font-mono text-[11px] flex-1 overflow-y-auto bg-slate-50/50">
           {loading && logs.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-50 space-y-4">
@@ -122,8 +120,8 @@ export default function Logs() {
             </div>
           ) : filteredLogs.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 opacity-50 space-y-3 py-20">
-               <ScrollText size={40} />
-               <p className="uppercase tracking-[0.2em] font-black">No matching events</p>
+              <ScrollText size={40} />
+              <p className="uppercase tracking-[0.2em] font-black">No matching events</p>
             </div>
           ) : (
             <div className="space-y-1">
@@ -132,15 +130,14 @@ export default function Logs() {
                 const isError = l.includes('ERROR') || l.includes('FAILED')
                 const isWarn = l.includes('WARNING') || l.includes('WARN')
                 const isPass = l.includes('PASSED') || l.includes('SUCCESS')
-                
+
                 return (
                   <div key={i} className="group flex gap-4 hover:bg-slate-900/[0.02] -mx-4 px-4 transition-colors">
-                     <span className="text-slate-300 w-10 text-right select-none opacity-50 group-hover:opacity-100">{i+1}</span>
-                     <span className={`flex-1 whitespace-pre-wrap ${
-                       isError ? 'text-rose-600 font-bold' : 
-                       isWarn ? 'text-amber-600 font-bold' : 
-                       isPass ? 'text-emerald-600 font-bold' : 'text-slate-600 font-medium'
-                     }`}>{log}</span>
+                    <span className="text-slate-300 w-10 text-right select-none opacity-50 group-hover:opacity-100">{i + 1}</span>
+                    <span className={`flex-1 whitespace-pre-wrap ${isError ? 'text-rose-600 font-bold' :
+                        isWarn ? 'text-amber-600 font-bold' :
+                          isPass ? 'text-emerald-600 font-bold' : 'text-slate-600 font-medium'
+                      }`}>{log}</span>
                   </div>
                 )
               })}
@@ -150,15 +147,15 @@ export default function Logs() {
         </div>
 
         <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 text-slate-400 flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
-           <div className="flex items-center gap-4">
-              <span>Buffer: {logs.length} events</span>
-              <span className="opacity-30">|</span>
-              <span>Showing: {filteredLogs.length}</span>
-           </div>
-           <div className="flex items-center gap-2">
-              <Activity size={10} className="text-emerald-500 animate-pulse" />
-              <span className="text-[9px]">Engine Status: Active</span>
-           </div>
+          <div className="flex items-center gap-4">
+            <span>Buffer: {logs.length} events</span>
+            <span className="opacity-30">|</span>
+            <span>Showing: {filteredLogs.length}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Activity size={10} className="text-emerald-500 animate-pulse" />
+            <span className="text-[9px]">Engine Status: Active</span>
+          </div>
         </div>
       </div>
     </div>

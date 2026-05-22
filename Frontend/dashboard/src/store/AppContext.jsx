@@ -8,6 +8,11 @@ export function AppProvider({ children }) {
   const [navParams, setNavParams] = useState({});
   const [featureState, setFeatureState] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [customAlert, setCustomAlert] = useState(null);
+
+  const showAlert = (title, message, type = 'info', onConfirm = null) => {
+    setCustomAlert({ title, message, type, onConfirm });
+  };
 
   // Fabric Audit Shared State
   const [isRunning, setIsRunning] = useState(false);
@@ -113,36 +118,36 @@ export function AppProvider({ children }) {
     return () => clearInterval(interval);
   }, [isRunning]);
 
-  const toggleExecution = () => {
-    const newRunningState = !isRunning;
-    setIsRunning(newRunningState);
-    if (newRunningState) {
-      setIsComplete(false);
-      setLogs([
-        "[SYSTEM] Initializing Fabric Audit Engine...",
-        `[INFO] Target Dataset: ${selectedDataset.toUpperCase()}`,
-        uploadedFile ? `[INFO] Source: ${uploadedFile.name}` : "[INFO] Source: Default Lakehouse Catalog",
-        "[PROCESS] Loading reconciliation logic...",
-        "[INFO] Validating schema consistency...",
-        "[PROCESS] Execution started. Scanning for delta logs..."
-      ]);
+  const toggleExecution = async () => {
+    if (isRunning) {
+      setIsRunning(false);
+      return;
+    }
 
-      // Simulate completion after 8 seconds
+    setIsRunning(true);
+    setIsComplete(false);
+    setLogs([
+      "[SYSTEM] Initializing Fabric Audit Engine...",
+      `[INFO] Target Dataset: ${selectedDataset.toUpperCase()}`,
+      uploadedFile ? `[INFO] Source: ${uploadedFile.name}` : "[INFO] Source: Default Lakehouse Catalog",
+      "[PROCESS] Loading reconciliation logic...",
+      "[INFO] Validating schema consistency...",
+      "[PROCESS] Execution started. Scanning for delta logs..."
+    ]);
+
+    try {
+      const data = await api.executeAudit(selectedDataset);
+      // We still use a small timeout to let the logs "feel" real, 
+      // but the data now comes from the backend.
       setTimeout(() => {
         setIsRunning(false);
         setIsComplete(true);
-        setReportData({
-          totalRows: 12450,
-          matches: 12432,
-          mismatches: 18,
-          accuracy: 99.85,
-          mismatchDetails: [
-            { id: 'REC_8842', field: 'unit_price', source: '24.50', target: '24.48', risk: 'High' },
-            { id: 'REC_9011', field: 'tax_amount', source: '2.10', target: 'NULL', risk: 'Critical' },
-            { id: 'REC_9055', field: 'currency_code', source: 'USD', target: 'EUR', risk: 'Medium' }
-          ]
-        });
-      }, 8000);
+        setReportData(data);
+      }, 2000);
+    } catch (error) {
+      console.error("Execution failed:", error);
+      setLogs(prev => [...prev, `[ERROR] Execution failed: ${error.message}`]);
+      setIsRunning(false);
     }
   };
 
@@ -166,6 +171,7 @@ export function AppProvider({ children }) {
     navParams, setNavParams,
     featureState, setFeatureState,
     isSettingsOpen, setIsSettingsOpen,
+    customAlert, setCustomAlert, showAlert,
     isRunning, setIsRunning,
     logs, setLogs,
     showLogs, setShowLogs,
