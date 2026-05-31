@@ -58,7 +58,7 @@ class TestCSVDrivenDemo:
                          attachment_type=allure.attachment_type.TEXT)
             
             if 'recid_list' in target_vars:
-                recid_list = [row['recid'] for row in source_results]
+                recid_list = [row[0] for row in source_results]
                 source_variables['recid_list'] = recid_list
                 allure.attach(str(recid_list), name='RecID List', 
                              attachment_type=allure.attachment_type.TEXT)

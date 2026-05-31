@@ -13,12 +13,12 @@ class DatabaseInitializer:
         """Initialize SQLite database"""
         db_path = "etl_test.db"
         
-        # Remove existing database
-        if os.path.exists(db_path):
-            os.remove(db_path)
-            
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
+        
+        # Drop existing tables
+        cursor.execute('DROP TABLE IF EXISTS products')
+        cursor.execute('DROP TABLE IF EXISTS etl_logs')
         
         # Create tables
         cursor.execute('''

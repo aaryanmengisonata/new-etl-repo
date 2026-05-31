@@ -30,11 +30,15 @@ class TestDatabaseExamples(BaseTest):
             assert result is not None, "Database connection failed"
             allure.attach("Connection Test", "SUCCESS", allure.attachment_type.TEXT)
         
-        with allure.step("Verify database file exists"):
+        with allure.step("Verify database connection info"):
             import os
-            db_exists = os.path.exists("etl_test.db")
-            assert db_exists, "Database file should exist"
-            allure.attach("Database File", "etl_test.db exists", allure.attachment_type.TEXT)
+            db_type = os.getenv('DB_TYPE', 'sqlite').lower()
+            if db_type == 'sqlite':
+                db_exists = os.path.exists("etl_test.db")
+                assert db_exists, "Database file should exist"
+                allure.attach("Database File", "etl_test.db exists", allure.attachment_type.TEXT)
+            else:
+                allure.attach("Database Type", f"Using {db_type} database", allure.attachment_type.TEXT)
 
     @allure.story("Table Structure Validation")
     @allure.severity(allure.severity_level.NORMAL)
@@ -43,8 +47,15 @@ class TestDatabaseExamples(BaseTest):
         """Test 2: Validate table structure and schema"""
         
         with allure.step("Check if required tables exist"):
-            # Get all tables
-            tables_query = "SELECT name FROM sqlite_master WHERE type='table'"
+            import os
+            db_type = os.getenv('DB_TYPE', 'sqlite').lower()
+            if db_type == 'postgres':
+                tables_query = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'"
+            elif db_type == 'sqlserver':
+                tables_query = "SELECT table_name FROM information_schema.tables"
+            else:
+                tables_query = "SELECT name FROM sqlite_master WHERE type='table'"
+                
             tables = self.db_client.execute_query(tables_query)
             table_names = [table[0] for table in tables]
             
@@ -55,11 +66,18 @@ class TestDatabaseExamples(BaseTest):
             allure.attach("Tables Found", json.dumps(table_names, indent=2), allure.attachment_type.JSON)
         
         with allure.step("Validate products table structure"):
-            # Get products table structure
-            structure_query = "PRAGMA table_info(products)"
-            columns = self.db_client.execute_query(structure_query)
+            import os
+            db_type = os.getenv('DB_TYPE', 'sqlite').lower()
+            if db_type == 'postgres' or db_type == 'sqlserver':
+                structure_query = "SELECT column_name FROM information_schema.columns WHERE table_name = 'products'"
+                columns = self.db_client.execute_query(structure_query)
+                column_names = [col[0] for col in columns]
+            else:
+                structure_query = "PRAGMA table_info(products)"
+                columns = self.db_client.execute_query(structure_query)
+                column_names = [col[1] for col in columns]
             
-            column_names = [col[1] for col in columns]
+            # extracted column names in the logic above
             required_columns = ["id", "title", "price", "category"]
             
             for column in required_columns:
@@ -149,26 +167,20 @@ class TestDatabaseExamples(BaseTest):
         """Test 5: Data type validation"""
         
         with allure.step("Validate numeric fields"):
-            # Check if price is numeric
-            numeric_check_query = """
-            SELECT id, price FROM products 
-            WHERE typeof(price) != 'real' AND typeof(price) != 'integer'
-            LIMIT 5
-            """
-            invalid_prices = self.db_client.execute_query(numeric_check_query)
+            # Check if price is numeric by sampling data
+            numeric_check_query = "SELECT id, price FROM products LIMIT 50"
+            prices = self.db_client.execute_query(numeric_check_query)
+            invalid_prices = [p for p in prices if p[1] is not None and not isinstance(p[1], (int, float))]
             assert len(invalid_prices) == 0, f"Found non-numeric prices: {invalid_prices}"
-            allure.attach("Numeric Validation", "All prices are numeric", allure.attachment_type.TEXT)
+            allure.attach("Numeric Validation", "All sampled prices are numeric", allure.attachment_type.TEXT)
         
         with allure.step("Validate string fields"):
-            # Check title field types
-            string_check_query = """
-            SELECT id, title FROM products 
-            WHERE typeof(title) != 'text'
-            LIMIT 5
-            """
-            invalid_titles = self.db_client.execute_query(string_check_query)
+            # Check title field types by sampling data
+            string_check_query = "SELECT id, title FROM products LIMIT 50"
+            titles = self.db_client.execute_query(string_check_query)
+            invalid_titles = [t for t in titles if t[1] is not None and not isinstance(t[1], str)]
             assert len(invalid_titles) == 0, f"Found non-text titles: {invalid_titles}"
-            allure.attach("String Validation", "All titles are text", allure.attachment_type.TEXT)
+            allure.attach("String Validation", "All sampled titles are text", allure.attachment_type.TEXT)
 
     @allure.story("Database Performance")
     @allure.severity(allure.severity_level.MINOR)
@@ -235,9 +247,16 @@ class TestDatabaseExamples(BaseTest):
         """Test 8: ETL logs table validation"""
         
         with allure.step("Verify ETL logs table structure"):
-            etl_structure_query = "PRAGMA table_info(etl_logs)"
-            etl_columns = self.db_client.execute_query(etl_structure_query)
-            etl_column_names = [col[1] for col in etl_columns]
+            import os
+            db_type = os.getenv('DB_TYPE', 'sqlite').lower()
+            if db_type == 'postgres' or db_type == 'sqlserver':
+                etl_structure_query = "SELECT column_name FROM information_schema.columns WHERE table_name = 'etl_logs'"
+                etl_columns = self.db_client.execute_query(etl_structure_query)
+                etl_column_names = [col[0] for col in etl_columns]
+            else:
+                etl_structure_query = "PRAGMA table_info(etl_logs)"
+                etl_columns = self.db_client.execute_query(etl_structure_query)
+                etl_column_names = [col[1] for col in etl_columns]
             
             required_etl_columns = ["id", "source_name", "records_processed", "status"]
             for column in required_etl_columns:

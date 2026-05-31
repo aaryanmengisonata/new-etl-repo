@@ -9,6 +9,10 @@ import Configuration from './pages/Configuration'
 import Logs from './pages/Logs'
 import TestCases from './pages/TestCases'
 import FabricAudit from './pages/FabricAudit'
+import ApiSentry from './pages/ApiSentry'
+import DbAuditor from './pages/DbAuditor'
+import EtlAuditor from './pages/EtlAuditor'
+import IntegrationSentry from './pages/IntegrationSentry'
 import Welcome from './pages/Welcome'
 import { X, AlertCircle, CheckCircle as CheckCircleIcon, Sparkles } from 'lucide-react'
 
@@ -20,8 +24,18 @@ export default function App() {
     navParams, setNavParams, 
     featureState, setFeatureState,
     isSettingsOpen, setIsSettingsOpen,
-    customAlert, setCustomAlert
+    customAlert, setCustomAlert,
+    setActiveModule
   } = useAppContext()
+
+  console.log("App render: activePage =", activePage, "navParams =", navParams)
+
+  React.useEffect(() => {
+    if (['db_auditor', 'fabric_audit', 'etl_auditor', 'api_sentry', 'integration_sentry'].includes(activePage)) {
+      setActiveModule(activePage);
+    }
+  }, [activePage, setActiveModule]);
+
 
   const pages = {
     dashboard: <Dashboard setActivePage={setActivePage} />,
@@ -29,7 +43,11 @@ export default function App() {
     run: <RunTests />,
     reports: <Reports />,
     fabric_audit: <FabricAudit setActivePage={setActivePage} setNavParams={setNavParams} />,
-    configuration: <Configuration navParams={navParams} setActivePage={setActivePage} />,
+    api_sentry: <ApiSentry />,
+    db_auditor: <DbAuditor />,
+    etl_auditor: <EtlAuditor />,
+    integration_sentry: <IntegrationSentry />,
+    configuration: <Configuration navParams={navParams} setActivePage={setActivePage} setFeatureState={setFeatureState} />,
     logs: <Logs />,
     welcome: <Welcome />,
   }
@@ -44,7 +62,7 @@ export default function App() {
       <div className="flex flex-col flex-1 overflow-hidden relative">
         {!['dashboard', 'welcome'].includes(activePage) && <Header activePage={activePage} />}
         
-        <main className={`flex-1 flex flex-col min-h-0 bg-white pb-10 ${(activePage === 'fabric_audit' && featureState === 'execution') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        <main className={`flex-1 flex flex-col min-h-0 bg-white pb-10 ${(['fabric_audit', 'api_sentry', 'db_auditor', 'integration_sentry', 'etl_auditor'].includes(activePage) && featureState === 'execution') ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           {React.cloneElement(currentPage, { featureState, setFeatureState })}
         </main>
         

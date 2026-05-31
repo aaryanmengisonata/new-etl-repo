@@ -23,10 +23,24 @@ export default function RunTests() {
   useEffect(() => {
     if (selectedEngine === 'etl') {
       setLoadingSuites(true)
-      fetch('http://localhost:8000/api/suites').then(res => res.json()).then(data => {
-        setSuites(data); setLoadingSuites(false)
-      }).catch(() => setLoadingSuites(false))
-    } else setSuites([])
+      fetch('http://localhost:8000/api/suites')
+        .then(res => {
+          if (!res.ok) {
+            throw new Error("Failed to load suites")
+          }
+          return res.json()
+        })
+        .then(data => {
+          setSuites(Array.isArray(data) ? data : [])
+          setLoadingSuites(false)
+        })
+        .catch(() => {
+          setSuites([])
+          setLoadingSuites(false)
+        })
+    } else {
+      setSuites([])
+    }
   }, [selectedEngine])
 
   const startExecution = () => {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Plus, Sparkles, Send, CheckCircle2, ChevronDown, ListChecks, Zap } from 'lucide-react';
+import { ShieldCheck, Plus, Sparkles, Send, CheckCircle2, ChevronDown, ListChecks, Zap, Play } from 'lucide-react';
 
 const INITIAL_VALIDATIONS = [
   { id: 'v1', name: 'Null Ratio Check', desc: 'Ensures target column has highly similar null ratios as the source table, preventing data loss during ELT.', type: 'Data Quality' },
@@ -8,7 +8,7 @@ const INITIAL_VALIDATIONS = [
   { id: 'v4', name: 'Referential Integrity', desc: 'Checks foreign keys across Bronze -> Silver layer joins to ensure no orphaned records exist.', type: 'Integrity Check' }
 ];
 
-export default function ValidationPanel() {
+export default function ValidationPanel({ onProceed }) {
   const [validations, setValidations] = useState(INITIAL_VALIDATIONS);
   const [activeValidationId, setActiveValidationId] = useState(INITIAL_VALIDATIONS[0].id);
   const [prompt, setPrompt] = useState('');
@@ -134,7 +134,7 @@ export default function ValidationPanel() {
              </div>
 
              {/* Run Button */}
-             <div className="shrink-0 pt-2">
+             <div className="shrink-0 pt-2 flex flex-col gap-2">
                 <button 
                   onClick={handleRun}
                   disabled={isRunning || !prompt.trim()}
@@ -145,6 +145,13 @@ export default function ValidationPanel() {
                   }`}
                 >
                    {isRunning ? <><Zap className="animate-pulse" size={14} /> Generating Changes...</> : <><Send size={14} /> Run Transformation</>}
+                </button>
+                
+                <button 
+                  onClick={onProceed}
+                  className="w-full py-3 rounded-xl text-[13px] font-bold shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20"
+                >
+                   <Play size={14} className="fill-white" /> Run Validation Suite
                 </button>
              </div>
           </div>

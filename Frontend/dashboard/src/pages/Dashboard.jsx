@@ -16,41 +16,47 @@ const features = [
   },
   {
     id: 'test_cases',
-    title: 'Data Testing Case',
-    description: 'Define and manage complex Data test skeletons. Skeleton-based validation for high-throughput data pipelines.',
+    title: 'Database Testing',
+    description: 'Data integrity, duplicate detection, constraint checks, and database health. Parse relational schemas manually or via AI diagram upload.',
     icon: Database,
     color: 'blue',
-    tags: ['SKELETONS', 'CSV/XL']
+    tags: ['SQLITE/PG', 'AI DIAGRAM']
   },
   {
     id: 'etl',
     title: 'Pipeline Auditor',
-    description: 'Professional-grade Data pipeline validation. Verify transformations and data integrity across your entire stack.',
+    description: 'Professional-grade Medallion architecture validation. Audit ETL data transformation rules and record counts.',
     icon: Activity,
     color: 'violet',
-    tags: ['PIPELINES', 'LAKEHOUSE']
+    tags: ['ETL', 'BRONZE/SILVER/GOLD']
   },
   {
     id: 'api',
     title: 'Endpoint Sentry',
-    description: 'Advanced REST endpoint validation. Monitor schemas, status codes, and latency in real-time.',
+    description: 'Advanced REST endpoint validation. Monitor schemas, response status codes, payload contracts, and latency.',
     icon: Globe,
     color: 'blue',
-    tags: ['REST', 'PROD']
+    tags: ['API', 'JSON SCHEMA']
   },
   {
     id: 'source_target',
     title: 'System Reconciler',
-    description: 'Bit-perfect comparison between disparate systems. Detailed reconciliation reports for multi-petabyte datasets.',
+    description: 'Bit-perfect comparison between disparate database engines, tables, or external endpoint integrations.',
     icon: ArrowRightLeft,
     color: 'rose',
-    tags: ['RECON', 'DIFF']
+    tags: ['RECON', 'INTEGRATION']
   }
 ]
 
 export default function Dashboard({ setActivePage, featureState, setFeatureState }) {
   const handleFeatureSelect = (id) => {
-    const map = { api: 'run', etl: 'run', fabric: 'fabric_audit', source_target: 'reports', test_cases: 'test_cases' }
+    const map = { 
+      api: 'api_sentry', 
+      etl: 'etl_auditor', 
+      fabric: 'fabric_audit', 
+      source_target: 'integration_sentry', 
+      test_cases: 'db_auditor' 
+    }
     // Reset feature state when navigating from home
     setFeatureState('')
     setActivePage(map[id] || 'dashboard')

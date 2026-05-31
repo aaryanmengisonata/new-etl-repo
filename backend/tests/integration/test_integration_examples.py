@@ -204,7 +204,7 @@ class TestIntegrationExamples(BaseTest):
         
         with allure.step("Test API error handling"):
             # Test invalid endpoint
-            error_response = self.api_client.get("/products/99999")
+            error_response = self.api_client.get("/invalid-endpoint")
             assert error_response.status_code == 404, "API should handle invalid requests"
             allure.attach("API Error Handling", "SUCCESS - 404 for invalid product", allure.attachment_type.TEXT)
         

@@ -6,6 +6,7 @@ const AppContext = createContext();
 export function AppProvider({ children }) {
   const [activePage, setActivePage] = useState('dashboard');
   const [navParams, setNavParams] = useState({});
+  const [activeModule, setActiveModule] = useState('fabric_audit');
   const [featureState, setFeatureState] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [customAlert, setCustomAlert] = useState(null);
@@ -118,7 +119,7 @@ export function AppProvider({ children }) {
     return () => clearInterval(interval);
   }, [isRunning]);
 
-  const toggleExecution = async () => {
+  const toggleExecution = async (customQuery = null) => {
     if (isRunning) {
       setIsRunning(false);
       return;
@@ -130,13 +131,14 @@ export function AppProvider({ children }) {
       "[SYSTEM] Initializing Fabric Audit Engine...",
       `[INFO] Target Dataset: ${selectedDataset.toUpperCase()}`,
       uploadedFile ? `[INFO] Source: ${uploadedFile.name}` : "[INFO] Source: Default Lakehouse Catalog",
+      customQuery ? `[INFO] Using Custom SQL Logic: ${customQuery.slice(0, 50)}...` : "[INFO] Using Default Reconciliation Logic",
       "[PROCESS] Loading reconciliation logic...",
       "[INFO] Validating schema consistency...",
       "[PROCESS] Execution started. Scanning for delta logs..."
     ]);
 
     try {
-      const data = await api.executeAudit(selectedDataset);
+      const data = await api.executeAudit(selectedDataset, customQuery);
       // We still use a small timeout to let the logs "feel" real, 
       // but the data now comes from the backend.
       setTimeout(() => {
@@ -169,6 +171,7 @@ export function AppProvider({ children }) {
   const value = {
     activePage, setActivePage,
     navParams, setNavParams,
+    activeModule, setActiveModule,
     featureState, setFeatureState,
     isSettingsOpen, setIsSettingsOpen,
     customAlert, setCustomAlert, showAlert,

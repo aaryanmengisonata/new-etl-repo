@@ -33,7 +33,7 @@ const globalNav = [
 ]
 
 export default function Sidebar({ activePage, setActivePage, featureState, setFeatureState }) {
-  const isFeatureMode = ['fabric_audit'].includes(activePage)
+  const isFeatureMode = ['fabric_audit', 'api_sentry', 'db_auditor', 'etl_auditor', 'integration_sentry'].includes(activePage)
 
   return (
     <aside className="w-64 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
@@ -50,28 +50,32 @@ export default function Sidebar({ activePage, setActivePage, featureState, setFe
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-6 px-3 space-y-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {!isFeatureMode ? (
-          globalNav.map((item) => {
-            const { id, label, icon: Icon } = item
-            const isActive = activePage === id
-            
-            return (
-              <button
-                key={id}
-                onClick={() => setActivePage(id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-200 group ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                    : 'text-slate-400 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Icon size={16} className={isActive ? 'text-white' : 'opacity-40 group-hover:opacity-100'} />
-                <span className="flex-1 text-left">{label}</span>
-                {isActive && <ChevronRight size={14} className="opacity-40" />}
-              </button>
-            )
-          })
+          <div key="global-nav" className="space-y-2">
+            {globalNav.map((item) => {
+              const { id, label, icon: Icon } = item
+              const isActive = activePage === id
+              
+              return (
+                <button
+                  key={id}
+                  onClick={() => setActivePage(id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-200 group ${
+                    isActive
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                      : 'text-slate-400 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon size={16} className={isActive ? 'text-white' : 'opacity-40 group-hover:opacity-100'} />
+                  <span className="flex-1 text-left">{label}</span>
+                  {isActive && <ChevronRight size={14} className="opacity-40" />}
+                </button>
+              )
+            })}
+          </div>
         ) : (
-          <FeatureToggle featureState={featureState} setFeatureState={setFeatureState} />
+          <div key="feature-nav">
+            <FeatureToggle activePage={activePage} featureState={featureState} setFeatureState={setFeatureState} />
+          </div>
         )}
       </nav>
 
@@ -82,7 +86,7 @@ export default function Sidebar({ activePage, setActivePage, featureState, setFe
   )
 }
 
-function FeatureToggle({ featureState, setFeatureState }) {
+function FeatureToggle({ activePage, featureState, setFeatureState }) {
   const { 
     isRunning, toggleExecution, 
     selectedDataset, setSelectedDataset, 
@@ -95,15 +99,23 @@ function FeatureToggle({ featureState, setFeatureState }) {
   const isQuery = featureState === 'query';
 
   const modes = [
-    { id: 'query', label: 'Query Mode', icon: List, visible: isIntro || isExecution || featureState === 'validation' },
-    { id: 'validation', label: 'Validation', icon: ShieldCheck, visible: isIntro || isExecution || isQuery },
-    { id: 'execution', label: 'Execution Mode', icon: Play, visible: isIntro || isQuery || featureState === 'validation' },
+    { id: 'query', label: 'Query Mode', icon: List, visible: true },
+    { id: 'validation', label: 'Validation', icon: ShieldCheck, visible: true },
+    { id: 'execution', label: 'Execution Mode', icon: Play, visible: true },
   ]
 
   return (
     <div className="space-y-4">
       {/* Smart Data Branding - High Energy / AI Style */}
-      <div className="px-4 py-3 flex items-center gap-4 mb-2 group relative">
+      <div 
+        onClick={() => setFeatureState('intro')}
+        className={`px-4 py-3 flex items-center gap-4 mb-2 group relative cursor-pointer rounded-2xl border transition-all duration-300 ${
+          isIntro 
+            ? 'bg-slate-50 border-slate-200/80 shadow-sm shadow-slate-100/50' 
+            : 'border-transparent hover:bg-slate-50/50'
+        }`}
+        title="Go to Module Introduction"
+      >
         {/* Glowing Background Aura */}
         <div className="absolute left-6 w-8 h-8 bg-indigo-500/20 blur-2xl rounded-full animate-pulse group-hover:bg-fuchsia-500/30 transition-colors" />
         
@@ -124,7 +136,7 @@ function FeatureToggle({ featureState, setFeatureState }) {
       </div>
       <div className="space-y-2">
         {modes.filter(m => m.visible).map((mode) => {
-          const isActive = featureState === mode.id || (mode.id === 'query' && isIntro)
+          const isActive = featureState === mode.id
           const Icon = mode.icon
           
           return (
@@ -146,7 +158,7 @@ function FeatureToggle({ featureState, setFeatureState }) {
                 {isActive && <ChevronRight size={14} className="opacity-50" />}
               </button>
 
-              {mode.id === 'validation' && isExecution && (
+              {mode.id === 'execution' && isExecution && activePage === 'fabric_audit' && (
                 <div className="mx-2 mt-4 space-y-4 animate-in slide-in-from-top-2 duration-300">
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Data Layer</label>

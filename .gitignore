@@ -1,0 +1,47 @@
+# IDE / Project Caches
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node / Frontend Build
+node_modules/
+dist/
+dist-ssr/
+build/
+.vite/
+npm-debug.log*
+
+# Python Environments & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+reports/
+
+# Database engines (Local Dev)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Secrets & Local Configurations
+.env
+.env.local
+.env.production
+config/.env
+*.properties.local
+
+# Temporary / Scratch Files
+*.tmp
+*.temp
+temp/
+tmp/
+check_status_codes.py
+test_timeout.py
+etl_test

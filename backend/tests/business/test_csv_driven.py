@@ -24,7 +24,6 @@ class TestBusinessCSVDriven(BaseTest):
         """Setup CSV controller and SQL repository"""
         cls.csv_controller = CSVTestController()
         cls.sql_repository = SQLRepository()
-        cls.db_client = SQLiteClient()
         cls.api_client = None
     
     @pytest.mark.business
@@ -73,7 +72,6 @@ class TestAccommodation(BaseTest):
     def setup_class(cls):
         cls.csv_controller = CSVTestController()
         cls.sql_repository = SQLRepository()
-        cls.db_client = SQLiteClient()
     
     @allure.story("Accommodation Validation")
     @pytest.mark.accommodation
@@ -99,7 +97,6 @@ class TestFlight(BaseTest):
     def setup_class(cls):
         cls.csv_controller = CSVTestController()
         cls.sql_repository = SQLRepository()
-        cls.db_client = SQLiteClient()
     
     @allure.story("Flight Validation")
     @pytest.mark.flight
@@ -125,7 +122,6 @@ class TestPricing(BaseTest):
     def setup_class(cls):
         cls.csv_controller = CSVTestController()
         cls.sql_repository = SQLRepository()
-        cls.db_client = SQLiteClient()
     
     @allure.story("Pricing Validation")
     @pytest.mark.pricing

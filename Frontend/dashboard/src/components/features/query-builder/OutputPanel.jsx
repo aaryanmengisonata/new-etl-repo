@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Cpu, Copy, Play, Brush, Sparkles, MessageSquare, Terminal, Check, Info } from 'lucide-react';
+import { Cpu, Copy, Play, Brush, Sparkles, MessageSquare, Terminal, Check, Info, ArrowRight } from 'lucide-react';
 
 export default function OutputPanel({ query, setQuery, onExplain, onRefine, onRun, onFormat, onOpenHistory, onLogs }) {
   const [activeTab, setActiveTab] = useState('SQL');
@@ -109,10 +109,10 @@ export default function OutputPanel({ query, setQuery, onExplain, onRefine, onRu
           <button 
             onClick={onRun}
             disabled={!query}
-            className="flex items-center gap-2 px-6 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-md active:scale-95 transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-md active:scale-95 transition-all disabled:opacity-50"
           >
-            <Play size={14} className="fill-white" />
-            Run Query
+            <ArrowRight size={14} />
+            Next: Validation
           </button>
         </div>
       </div>

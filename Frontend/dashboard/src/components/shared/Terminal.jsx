@@ -30,15 +30,18 @@ export default function Terminal({ logs, minHeight = "400px" }) {
              <p className="uppercase tracking-[0.3em] font-black text-center">Awaiting Transmission...</p>
           </div>
         ) : (
-          logs.map((log, i) => (
-            <div key={i} className={`flex gap-3 leading-relaxed transition-all animate-in slide-in-from-left-2 ${
-              log.includes('PASSED') ? 'text-emerald-600 font-bold' : 
-              log.includes('FAILED') ? 'text-rose-600 font-bold' : ''
-            }`}>
-              <span className="opacity-30 flex-shrink-0">{(i + 1).toString().padStart(3, '0')}</span>
-              <span className="break-all">{log}</span>
-            </div>
-          ))
+          logs.map((log, i) => {
+            const logText = log ? String(log) : '';
+            return (
+              <div key={i} className={`flex gap-3 leading-relaxed transition-all animate-in slide-in-from-left-2 ${
+                logText.includes('PASSED') ? 'text-emerald-600 font-bold' : 
+                logText.includes('FAILED') ? 'text-rose-600 font-bold' : ''
+              }`}>
+                <span className="opacity-30 flex-shrink-0">{(i + 1).toString().padStart(3, '0')}</span>
+                <span className="break-all">{logText}</span>
+              </div>
+            );
+          })
         )}
         <div ref={logEndRef} />
       </div>

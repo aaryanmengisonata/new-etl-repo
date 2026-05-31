@@ -11,6 +11,10 @@ const pageTitles = {
   reports: { title: 'Report Management', subtitle: 'Audit historical runs and compare results' },
   configuration: { title: 'Master Configuration', subtitle: 'Manage connection strings and environment variables' },
   fabric_audit: { title: 'Fabric Validation', subtitle: 'Enterprise Data Auditing Platform' },
+  etl_auditor: { title: 'Pipeline Auditor', subtitle: 'Data reconciliation between Source & Target' },
+  api_sentry: { title: 'API Sentry', subtitle: 'REST Endpoint Validation & Contract Testing' },
+  db_auditor: { title: 'Database Auditor', subtitle: 'Schema Validation & Assertion Engine' },
+  integration_sentry: { title: 'Integration Sentry', subtitle: 'Cross-System Reconciliation Testing' },
 }
 
 export default function Header({ activePage }) {

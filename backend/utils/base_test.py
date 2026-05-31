@@ -9,9 +9,23 @@ from utils.sqlserver_client import SQLServerClient
 class BaseTest:
     @pytest.fixture(autouse=True)
     def setup(self):
+        import os
+        from utils.db_client import DatabaseClient
+        
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.api_client = APIClient("https://fakestoreapi.com")
-        self.db_client = SQLiteClient()
+        
+        # Dynamically set API Client from env
+        api_base_url = os.getenv('API_BASE_URL', "https://fakestoreapi.com")
+        self.api_client = APIClient(api_base_url)
+        
+        # Dynamically set DB Client based on DB_TYPE (default to sqlite for backward compatibility)
+        db_type = os.getenv('DB_TYPE', 'sqlite').lower()
+        if db_type == 'postgres':
+            self.db_client = DatabaseClient()
+        elif db_type == 'sqlserver':
+            self.db_client = SQLServerClient('CUSTOMER_DB')
+        else:
+            self.db_client = SQLiteClient()
         
         # Fabric clients for Bronze, Silver, Gold
         self.bronze_client = FabricClient('BRONZE')

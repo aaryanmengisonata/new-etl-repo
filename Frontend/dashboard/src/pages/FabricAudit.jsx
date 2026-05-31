@@ -102,7 +102,7 @@ export default function FabricAudit({ setActivePage, setNavParams, featureState,
 
 
    const openSettings = () => {
-      setNavParams({ targetTab: 'fabric', returnPage: 'fabric_audit', returnMode: 'query' })
+      setNavParams({ defaultTab: 'fabric', returnPage: 'fabric_audit', returnMode: 'query' })
       setActivePage('configuration')
    }
 
@@ -231,9 +231,8 @@ export default function FabricAudit({ setActivePage, setNavParams, featureState,
                      onExplain={() => showAlert('AI Explanation', 'This query joins the Bronze and Silver medallion layers on ID to identify record discrepancies.', 'info')} 
                      onRefine={() => showAlert('AI Refinement Workspace', 'Opening AI Refinement Dialog...', 'info')} 
                      onRun={() => {
-                        setFeatureState('execution')
-                        toggleExecution()
-                     }} 
+                         setFeatureState('validation')
+                      }} 
                      onFormat={() => showAlert('Success', 'Code formatted successfully!', 'success')}
                      onOpenHistory={() => setIsHistoryOpen(true)}
                      onLogs={() => showAlert('System Logs', 'No active logic execution logs found. Please run the query first.', 'info')}
@@ -255,7 +254,14 @@ export default function FabricAudit({ setActivePage, setNavParams, featureState,
 
    // --- RENDER VALIDATION MODE ---
    if (currentMode === 'validation') {
-      return <ValidationPanel />
+      return (
+         <ValidationPanel 
+            onProceed={() => {
+               setFeatureState('execution')
+               toggleExecution(queryBuffer)
+            }}
+         />
+      )
    }
 
    // --- RENDER EXECUTION MODE ---
